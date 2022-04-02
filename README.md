@@ -14,11 +14,13 @@ Install all required prerequisites:
 
 Download a build from the [Releases](https://github.com/pimaker/animator-as-visual/releases) tab and import it into your avatar project.
 
+**NOTE: This project is in a very early state, I can _not_ guarantee that anything made with it now will survive an upgrade without having to re-do your menus!**
+
 ## Usage
 
 Drag the 'AAV' prefab into your scene, and optionally "Unpack" it from the context menu.
 
-Follow the instructions in the Inspector window. It's designed to be self-explanatory for ease of use, if you find something confusing or need help, feel free to ask on my [Discord Server](https://discord.gg/r38vJd2DuJ).
+Follow the instructions in the Inspector window. It's designed to be self-explanatory for ease of use, if you find something confusing or need help, feel free to ask on my [Discord Server](https://discord.gg/r38vJd2DuJ). Also try hovering over text in the editor, often there is a tooltip :+1:
 
 # License
 
