@@ -26,7 +26,7 @@ namespace pi.AnimatorAsVisual
         private ReorderableList RLBlendShapes;
         private bool modified = false;
 
-        public override bool DrawEditor()
+        public override bool DrawEditor(AnimatorAsVisual aav)
         {
             modified = false;
 

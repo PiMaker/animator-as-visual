@@ -18,7 +18,7 @@ namespace pi.AnimatorAsVisual
 
         private bool modified;
 
-        public override bool DrawEditor()
+        public override bool DrawEditor(AnimatorAsVisual aav)
         {
             modified = false;
 

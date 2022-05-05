@@ -45,7 +45,7 @@ namespace pi.AnimatorAsVisual
                 .ToList();
         }
 
-        public override bool DrawEditor()
+        public override bool DrawEditor(AnimatorAsVisual aav)
         {
             var headerStyle = AavHelpers.HeaderStyle;
             GUILayout.Label("Select Type", headerStyle);

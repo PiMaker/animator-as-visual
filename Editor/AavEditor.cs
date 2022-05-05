@@ -383,7 +383,7 @@ namespace pi.AnimatorAsVisual
             GUILayout.Space(4);
 
             // Draw the editor for the currently selected entry now
-            modified |= entry.DrawEditor();
+            modified |= entry.DrawEditor(Data);
 
             // Big red delete button
             GUILayout.Space(16);

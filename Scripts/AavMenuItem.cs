@@ -41,7 +41,7 @@ namespace pi.AnimatorAsVisual
         public abstract VRCExpressionsMenu.Control GenerateAv3MenuEntry(AnimatorAsVisual aav);
 
         // returns true if any element was modified
-        public abstract bool DrawEditor();
+        public abstract bool DrawEditor(AnimatorAsVisual aav);
     }
 
     [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]

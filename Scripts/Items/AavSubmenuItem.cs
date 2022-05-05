@@ -49,7 +49,7 @@ namespace pi.AnimatorAsVisual
 
         // Note: This draws the editor for the submenu item *itself*,
         // entering a submenu has special handling code in AavEditor.
-        public override bool DrawEditor()
+        public override bool DrawEditor(AnimatorAsVisual aav)
         {
             return false;
         }
