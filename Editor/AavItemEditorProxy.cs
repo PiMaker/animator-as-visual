@@ -42,6 +42,7 @@ namespace pi.AnimatorAsVisual
 
         private void UpdateSelectionWithPosition()
         {
+            if (item == null) return;
             AavSubmenuItem sub;
             if ((sub = item as AavSubmenuItem) != null)
             {
