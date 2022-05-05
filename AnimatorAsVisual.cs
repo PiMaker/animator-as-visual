@@ -16,7 +16,7 @@ namespace pi.AnimatorAsVisual
         [Tooltip("This will default to the menu on your Avatar if left blank, but you can also specify a specific menu here to not overwrite existing entries. You can then use that menu as a 'sub menu' in a manually created expressions menu.")]
         public VRCExpressionsMenu Menu;
 
-        public AavSubmenuItem Root;
+        [SerializeReference] public AavSubmenuItem Root;
 
         [Tooltip("VRChat recommends 'Write Defaults' set to off, but it may be useful to enable in some scenarios. Leave untouched/off if you're unsure.")]
         public bool WriteDefaults;

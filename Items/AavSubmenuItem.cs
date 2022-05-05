@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using UnityEditor;
 using UnityEngine;
@@ -17,10 +18,14 @@ namespace pi.AnimatorAsVisual
         public override string GUIName => "Submenu";
         public override int GUISortOrder => -100;
 
-        [SerializeReference] public List<AavMenuItem> Items = new List<AavMenuItem>();
-        [SerializeReference] public AavSubmenuItem Parent;
-
-        [NonSerialized] public Action<AavSubmenuItem> MenuOpened;
+        public AavSubmenuItem Parent => this.transform.parent?.GetComponent<AavSubmenuItem>();
+        public IEnumerable<AavMenuItem> Items => Enumerable.Range(0, this.transform.childCount).Select(i =>
+            {
+                AavMenuItem item = null;
+                var exists = this.transform.GetChild(i)?.TryGetComponent<AavMenuItem>(out item);
+                return exists.GetValueOrDefault(false) ? item : null;
+            })
+            .Where(x => x != null);
 
         public IEnumerable<AavMenuItem> EnumerateRecursive()
         {
@@ -48,17 +53,13 @@ namespace pi.AnimatorAsVisual
         // entering a submenu has special handling code in AavEditor.
         public override bool DrawEditor()
         {
-            if (GUILayout.Button("Edit Submenu", AavHelpers.BigButtonStyle))
-            {
-                MenuOpened?.Invoke(this);
-            }
-            GUILayout.Label("You can also double click the entry in the radial menu to enter!", AavHelpers.HeaderStyle);
             return false;
         }
 
         public override VRCExpressionsMenu.Control GenerateAv3MenuEntry(AnimatorAsVisual aav)
         {
             var subMenu = ScriptableObject.CreateInstance<VRCExpressionsMenu>();
+            subMenu.name = this.AavName;
             AssetDatabase.AddObjectToAsset(subMenu, AssetDatabase.GetAssetPath(aav.Avatar.expressionsMenu));
             foreach (var item in this.Items)
             {

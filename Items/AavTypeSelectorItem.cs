@@ -20,7 +20,7 @@ namespace pi.AnimatorAsVisual
 
         private List<(Type, string)> AvailableTypes;
 
-        public event EventHandler<Type> TypeSelected;
+        public Action<AavTypeSelectorItem, Type> TypeSelected;
 
         public override void GenerateAnimator(AacFlBase aac, AnimatorAsVisual aav, List<string> usedAv3Parameters)
         {
@@ -36,10 +36,11 @@ namespace pi.AnimatorAsVisual
                     t != typeof(AavTypeSelectorItem) && // important to avoid recursion
                     typeof(AavMenuItem).IsAssignableFrom(t))
                 .Select(t => {
-                    var instance = (AavMenuItem)ScriptableObject.CreateInstance(t);
+                    var tempGo = new GameObject("Temp");
+                    var instance = (AavMenuItem)tempGo.AddComponent(t);
                     var name = instance.GUIName;
                     var order = instance.GUISortOrder;
-                    ScriptableObject.DestroyImmediate(instance);
+                    DestroyImmediate(tempGo);
                     return ((t, name), order);
                 })
                 .OrderBy(x => x.order)

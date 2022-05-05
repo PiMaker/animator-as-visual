@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using AnimatorAsCode.V0;
+using UnityEditor;
 using UnityEngine;
 using VRC.SDK3.Avatars.ScriptableObjects;
 
@@ -10,13 +11,22 @@ namespace pi.AnimatorAsVisual
 {
     [Serializable]
     [ExecuteInEditMode]
-    public abstract class AavMenuItem : ScriptableObject
+    public abstract class AavMenuItem : MonoBehaviour
     {
         /*
             Basic data for one entry
         */
 
-        public string AavName;
+        public string AavName
+        {
+            get => this.gameObject.name;
+            set {
+                if (this.gameObject.name != value)
+                {
+                    this.gameObject.name = value;
+                }
+            }
+        }
         public Texture2D Icon;
 
         // note: substringing a Guid is normally a very bad idea, but here it is only

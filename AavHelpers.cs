@@ -16,6 +16,25 @@ namespace pi.AnimatorAsVisual
             return n;
         }
 
+        public static T GetComponentOrNull<T>(this GameObject go) where T : Component
+        {
+            T res = null;
+            var exists = go.TryGetComponent<T>(out res);
+            return exists ? res : null;
+        }
+
+        public static int GetPositionInHierarchy(this Transform t)
+        {
+            if (t.parent == null) return -1;
+            var i = 0;
+            foreach (var item in t.parent)
+            {
+                if ((item as Transform) == t) return i;
+                i++;
+            }
+            return -1;
+        }
+
         public static GUIStyle HeaderStyle
         {
             get

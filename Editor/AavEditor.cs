@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Linq;
 
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -15,6 +16,7 @@ using GestureManager.Scripts.Editor.Modules.Vrc3.RadialButtons;
 
 using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
+using System.IO;
 
 namespace pi.AnimatorAsVisual
 {
@@ -29,7 +31,12 @@ namespace pi.AnimatorAsVisual
         private const float ClampReset = Size / 1.7f;
         private const int CursorSize = 50;
 
-        private AnimatorAsVisual Data => target as AnimatorAsVisual;
+        private AnimatorAsVisual data = null;
+        internal AnimatorAsVisual Data
+        {
+            get => data ?? target as AnimatorAsVisual;
+            set => data = value;
+        }
         public override bool RequiresConstantRepaint() => true; // FIXME? Performance?
 
         private bool modified = false;
@@ -46,8 +53,9 @@ namespace pi.AnimatorAsVisual
                     {
                         if (Data.Root == null)
                         {
-                            Data.Root = ScriptableObject.CreateInstance<AavSubmenuItem>();
-                            Data.Root.AavName = "Root";
+                            var go = new GameObject("Root");
+                            Data.Root = go.AddComponent<AavSubmenuItem>();
+                            Data.Root.transform.parent = Data.transform;
                         }
                         Data.CurrentMenu = Data.Root;
                     }
@@ -59,6 +67,11 @@ namespace pi.AnimatorAsVisual
             {
                 Data.CurrentMenu = _currentMenu = value;
             }
+        }
+
+        public AavEditor(AnimatorAsVisual aav)
+        {
+            data = aav;
         }
 
         /*
@@ -74,8 +87,6 @@ namespace pi.AnimatorAsVisual
         private VisualElement radial;
 
         private RadialMenuItem[] buttons;
-
-        private DateTime lastClick = DateTime.MinValue;
 
         /*
             Resource loading and initialization
@@ -106,7 +117,16 @@ namespace pi.AnimatorAsVisual
             cursor.SetData(Clamp, ClampReset, (int)(InnerSize / 2f), (int)(Size / 2f), radial);
 
             LoadResources();
-            EditorApplication.delayCall += GenerateMenu;
+
+            EditorApplication.delayCall += () => {
+                if (data == null)
+                {
+                    // probably editing AAV root component
+                    CurrentMenu = Data.Root;
+                    Data.CurrentlySelected = -1;
+                }
+                GenerateMenu();
+            };
         }
 
         /*
@@ -220,30 +240,22 @@ namespace pi.AnimatorAsVisual
             Visual editor functionality
         */
 
-        private void GenerateMenu()
+        internal void GenerateMenu()
         {
-            if (Data.CurrentlySelected >= CurrentMenu.Items.Count) Data.CurrentlySelected = -1;
+            if (Data.CurrentlySelected >= CurrentMenu.Items.Count()) Data.CurrentlySelected = -1;
 
             var list = new List<RadialMenuItem>();
             list.Add(new RadialMenuButton(HandleAddControl, "Add Control", iconPlus));
 
-            for (int i = 0; i < CurrentMenu.Items.Count; i++)
+            var i = 0;
+            foreach (var item in CurrentMenu.Items)
             {
-                var item = CurrentMenu.Items[i];
-                
-                AavSubmenuItem sub;
-                if ((sub = item as AavSubmenuItem) != null)
-                {
-                    sub.MenuOpened = menu =>
-                    {
-                        OpenSubmenu((AavSubmenuItem)menu);
-                    };
-                }
-
-                list.Add(new RadialMenuButton(HandleEntrySelected(i), item.AavName, item.Icon));
+                list.Add(new RadialMenuButton(HandleEntrySelected(i++), item.AavName, item.Icon));
             }
 
             SetButtons(list.ToArray());
+
+            AddTypeSelectedHandlers();
         }
 
         // curry the index into an Action
@@ -252,61 +264,51 @@ namespace pi.AnimatorAsVisual
         {
             return () =>
             {
-                var entry = CurrentMenu.Items[index];
-                AavSubmenuItem sub;
-                if ((sub = entry as AavSubmenuItem) != null)
-                {
-                    var now = DateTime.UtcNow;
-                    if ((now - lastClick).TotalMilliseconds < 250)
-                    {
-                        // double click on submenu, open it
-                        lastClick = DateTime.MinValue;
-                        OpenSubmenu(sub);
-                    }
-                    else
-                    {
-                        lastClick = now;
-                    }
-                }
-
+                var entry = CurrentMenu.Items.ElementAt(index);
                 if (Data.CurrentlySelected == index)
+                {
                     Data.CurrentlySelected = -1;
+                }
                 else
+                {
                     Data.CurrentlySelected = index;
+                    Selection.SetActiveObjectWithContext(CurrentMenu.transform.GetChild(Data.CurrentlySelected), null);
+                }
                 GenerateMenu();
             };
         }
 
+        private void AddTypeSelectedHandlers()
+        {
+            foreach (var item in CurrentMenu.Items)
+            {
+                var tsi = item as AavTypeSelectorItem;
+                if (tsi != null)
+                {
+                    tsi.TypeSelected = HandleControlTypeSelected;
+                }
+            }
+        }
+
         private void HandleAddControl()
         {
-            var selectorItem = ScriptableObject.CreateInstance<AavTypeSelectorItem>();
-            selectorItem.AavName = "New Entry";
-            selectorItem.TypeSelected += HandleControlTypeSelected;
-            CurrentMenu.Items.Add(selectorItem);
+            var go = new GameObject("New Entry");
+            var selectorItem = go.AddComponent<AavTypeSelectorItem>();
+            selectorItem.transform.parent = Data.CurrentMenu.transform;
+            AddTypeSelectedHandlers();
 
-            Data.CurrentlySelected = CurrentMenu.Items.Count - 1;
             Data.Dirty = true;
+            Selection.SetActiveObjectWithContext(go, null);
 
             GenerateMenu();
         }
 
-        private void HandleControlTypeSelected(object sender, Type type)
+        private void HandleControlTypeSelected(AavTypeSelectorItem sender, Type type)
         {
-            var sel = (AavTypeSelectorItem)sender;
+            var newEntry = (AavMenuItem)sender.gameObject.AddComponent(type);
+            newEntry.Icon = sender.Icon;
 
-            var newEntry = (AavMenuItem)ScriptableObject.CreateInstance(type);
-            newEntry.AavName = sel.AavName;
-            newEntry.Icon = sel.Icon;
-
-            CurrentMenu.Items[Data.CurrentlySelected] = newEntry;
-
-            AavSubmenuItem sub;
-            if ((sub = newEntry as AavSubmenuItem) != null)
-            {
-                sub.Parent = CurrentMenu;
-            }
-
-            ScriptableObject.DestroyImmediate(sel);
+            DestroyImmediate(sender);
             GenerateMenu();
         }
 
@@ -314,6 +316,7 @@ namespace pi.AnimatorAsVisual
         {
             CurrentMenu = menu;
             Data.CurrentlySelected = -1;
+            Selection.SetActiveObjectWithContext(CurrentMenu, null);
             EditorApplication.delayCall += GenerateMenu;
         }
 
@@ -323,6 +326,12 @@ namespace pi.AnimatorAsVisual
         private void DrawEntryEditor()
         {
             GUILayout.Space(14);
+
+            if (CurrentMenu != null && CurrentMenu.gameObject == null)
+            {
+                EditorGUILayout.HelpBox("The current menu structure is out of date/invalid. Please delete your AnimatorAsVisual object and place a new instance of the Prefab in your scene.", MessageType.Error);
+                return;
+            }
 
             // Draw Breadcrumbs
             var path = new StringBuilder(CurrentMenu.AavName);
@@ -341,16 +350,7 @@ namespace pi.AnimatorAsVisual
                 var prev = CurrentMenu;
                 CurrentMenu = CurrentMenu.Parent;
                 Data.CurrentlySelected = -1;
-                // select menu that was just open
-                for (int i = 0; i < CurrentMenu.Items.Count; i++)
-                {
-                    if (CurrentMenu.Items[i] == prev)
-                    {
-                        Data.CurrentlySelected = i;
-                        break;
-                    }
-                }
-                EditorApplication.delayCall += GenerateMenu;
+                Selection.SetActiveObjectWithContext(CurrentMenu, null);
                 return;
             }
 
@@ -358,7 +358,9 @@ namespace pi.AnimatorAsVisual
             GmgLayoutHelper.Divisor(1);
             GUILayout.Space(10);
 
-            if (Data.CurrentlySelected >= CurrentMenu.Items.Count) Data.CurrentlySelected = -1;
+            var currentItemCount = CurrentMenu.Items.Count();
+
+            if (Data.CurrentlySelected >= currentItemCount) Data.CurrentlySelected = -1;
             if (Data.CurrentlySelected == -1)
             {
                 GUILayout.Label("Please select an entry to edit.");
@@ -367,62 +369,9 @@ namespace pi.AnimatorAsVisual
             }
 
             modified = false;
-            var entry = CurrentMenu.Items[Data.CurrentlySelected];
+            var entry = CurrentMenu.Items.ElementAt(Data.CurrentlySelected);
 
             Undo.RecordObject(entry, "Animator As Visual");
-
-            // Draw and handle move buttons
-            if (CurrentMenu.Items.Count >= 2)
-            {
-                using (var horoscope /* I'm an Aquarius */ = new EditorGUILayout.HorizontalScope())
-                {
-                    if (GUILayout.Button("<< CCW"))
-                    {
-                        if (Data.CurrentlySelected == 0)
-                        {
-                            var toAppend = CurrentMenu.Items[0];
-                            for (int i = 1; i < CurrentMenu.Items.Count; i++)
-                            {
-                                CurrentMenu.Items[i - 1] = CurrentMenu.Items[i];
-                            }
-                            CurrentMenu.Items[CurrentMenu.Items.Count - 1] = toAppend;
-                            Data.CurrentlySelected = CurrentMenu.Items.Count - 1;
-                        }
-                        else
-                        {
-                            var toSwap = CurrentMenu.Items[Data.CurrentlySelected];
-                            CurrentMenu.Items[Data.CurrentlySelected] = CurrentMenu.Items[Data.CurrentlySelected - 1];
-                            CurrentMenu.Items[Data.CurrentlySelected - 1] = toSwap;
-                            Data.CurrentlySelected--;
-                        }
-
-                        modified = true;
-                    }
-                    GUILayout.Space(5);
-                    if (GUILayout.Button("CW >>"))
-                    {
-                        if (Data.CurrentlySelected == CurrentMenu.Items.Count - 1)
-                        {
-                            var toPrepend = CurrentMenu.Items[CurrentMenu.Items.Count - 1];
-                            for (int i = CurrentMenu.Items.Count - 1; i >= 1; i--)
-                            {
-                                CurrentMenu.Items[i] = CurrentMenu.Items[i - 1];
-                            }
-                            CurrentMenu.Items[0] = toPrepend;
-                            Data.CurrentlySelected = 0;
-                        }
-                        else
-                        {
-                            var toSwap = CurrentMenu.Items[Data.CurrentlySelected];
-                            CurrentMenu.Items[Data.CurrentlySelected] = CurrentMenu.Items[Data.CurrentlySelected + 1];
-                            CurrentMenu.Items[Data.CurrentlySelected + 1] = toSwap;
-                            Data.CurrentlySelected++;
-                        }
-
-                        modified = true;
-                    }
-                }
-            }
 
             // Draw basic editor fields
             var headerStyle = AavHelpers.HeaderStyle;
@@ -442,10 +391,11 @@ namespace pi.AnimatorAsVisual
             GUI.backgroundColor = new Color(1.0f, 0.4f, 0.4f);
             if (GUILayout.Button("Delete Entry", AavHelpers.BigButtonStyle))
             {
-                CurrentMenu.Items.RemoveAt(Data.CurrentlySelected);
-                ScriptableObject.DestroyImmediate(entry);
+                //CurrentMenu.Items.RemoveAt(Data.CurrentlySelected);
+                DestroyImmediate(entry.gameObject);
                 Data.CurrentlySelected--;
                 Data.Dirty = true;
+                Selection.SetActiveObjectWithContext(CurrentMenu.transform.GetChild(Data.CurrentlySelected) ?? CurrentMenu.transform, null);
                 EditorApplication.delayCall += GenerateMenu;
                 return;
             }
@@ -462,26 +412,28 @@ namespace pi.AnimatorAsVisual
 
         private void DrawSyncButton()
         {
+            var dataSer = new SerializedObject(Data);
+
             // Avatar selector
-            serializedObject.Update();
-            var avatarProp = serializedObject.FindProperty("Avatar");
+            dataSer.Update();
+            var avatarProp = dataSer.FindProperty("Avatar");
             EditorGUILayout.PropertyField(avatarProp);
-            var menuProp = serializedObject.FindProperty("Menu");
+            var menuProp = dataSer.FindProperty("Menu");
             EditorGUILayout.PropertyField(menuProp);
 
             GUILayout.Space(4);
             if (expertFoldoutOpen = EditorGUILayout.Foldout(expertFoldoutOpen, "Expert Settings"))
             {
-                var writeDefaultsProp = serializedObject.FindProperty("WriteDefaults");
+                var writeDefaultsProp = dataSer.FindProperty("WriteDefaults");
                 EditorGUILayout.PropertyField(writeDefaultsProp);
             }
             GUILayout.Space(4);
 
-            if (serializedObject.hasModifiedProperties)
+            if (dataSer.hasModifiedProperties)
             {
                 Data.Dirty = true;
             }
-            serializedObject.ApplyModifiedProperties();
+            dataSer.ApplyModifiedProperties();
 
             var error = HandleAvatarErrors();
 
