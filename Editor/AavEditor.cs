@@ -119,7 +119,7 @@ namespace pi.AnimatorAsVisual
             LoadResources();
 
             EditorApplication.delayCall += () => {
-                if (data == null)
+                if (!PrefabUtility.IsPartOfPrefabAsset(Data.gameObject) && data == null)
                 {
                     // probably editing AAV root component
                     CurrentMenu = Data.Root;
@@ -242,6 +242,7 @@ namespace pi.AnimatorAsVisual
 
         internal void GenerateMenu()
         {
+            if (PrefabUtility.IsPartOfPrefabAsset(Data.gameObject)) return;
             if (Data.CurrentlySelected >= CurrentMenu.Items.Count()) Data.CurrentlySelected = -1;
 
             var list = new List<RadialMenuItem>();
