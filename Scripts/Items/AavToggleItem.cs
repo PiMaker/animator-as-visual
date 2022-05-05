@@ -8,11 +8,9 @@ using VRC.SDK3.Avatars.ScriptableObjects;
 namespace pi.AnimatorAsVisual
 {
     [Serializable]
+    [AavMenu("Toggle", -10)]
     public partial class AavToggleItem : AavMenuItem
     {
-        public override string GUIName => "Toggle";
-        public override int GUISortOrder => -10;
-
         public bool Default = false;
         public bool Saved = true;
 

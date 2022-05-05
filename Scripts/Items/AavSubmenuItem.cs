@@ -13,11 +13,9 @@ using VRC.SDK3.Avatars.ScriptableObjects;
 namespace pi.AnimatorAsVisual
 {
     [Serializable]
+    [AavMenu("Submenu", -100)]
     public class AavSubmenuItem : AavMenuItem
     {
-        public override string GUIName => "Submenu";
-        public override int GUISortOrder => -100;
-
         public AavSubmenuItem Parent => this.transform.parent?.GetComponent<AavSubmenuItem>();
         public IEnumerable<AavMenuItem> Items => Enumerable.Range(0, this.transform.childCount).Select(i =>
             {

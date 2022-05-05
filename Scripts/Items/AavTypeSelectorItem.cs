@@ -14,10 +14,9 @@ using VRC.SDK3.Avatars.ScriptableObjects;
 namespace pi.AnimatorAsVisual
 {
     [Serializable]
+    [AavMenu("Type Select")]
     public class AavTypeSelectorItem : AavMenuItem
     {
-        public override string GUIName => "Type Select";
-
         private List<(Type, string)> AvailableTypes;
 
         public Action<AavTypeSelectorItem, Type> TypeSelected;
@@ -36,11 +35,9 @@ namespace pi.AnimatorAsVisual
                     t != typeof(AavTypeSelectorItem) && // important to avoid recursion
                     typeof(AavMenuItem).IsAssignableFrom(t))
                 .Select(t => {
-                    var tempGo = new GameObject("Temp");
-                    var instance = (AavMenuItem)tempGo.AddComponent(t);
-                    var name = instance.GUIName;
-                    var order = instance.GUISortOrder;
-                    DestroyImmediate(tempGo);
+                    var attr = t.GetCustomAttribute<AavMenuAttribute>();
+                    var name = attr?.GUIName ?? t.Name;
+                    var order = attr?.GUISortOrder ?? 0;
                     return ((t, name), order);
                 })
                 .OrderBy(x => x.order)

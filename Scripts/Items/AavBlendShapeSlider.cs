@@ -13,10 +13,9 @@ using VRC.SDK3.Avatars.ScriptableObjects;
 namespace pi.AnimatorAsVisual
 {
     [Serializable]
+    [AavMenu("Blendshape Slider")]
     public class AavBlendShapeSlider : AavMenuItem
     {
-        public override string GUIName => "Blendshape Slider";
-
         [Range(0, 1)]
         public float Default = 0.5f;
         public bool Saved = true;
