@@ -250,7 +250,9 @@ namespace pi.AnimatorAsVisual
             var i = 0;
             foreach (var item in CurrentMenu.Items)
             {
-                list.Add(new RadialMenuButton(HandleEntrySelected(i++), item.AavName, item.Icon));
+                var isSubmenu = item is AavSubmenuItem;
+                var label = (isSubmenu ? "[M] " : "") + item.AavName;
+                list.Add(new RadialMenuButton(HandleEntrySelected(i++), label, item.Icon));
             }
 
             SetButtons(list.ToArray());
