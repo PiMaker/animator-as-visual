@@ -336,7 +336,7 @@ namespace pi.AnimatorAsVisual
             GUILayout.Label("Menu Path: " + path);
 
             // Draw Menu Up button
-            if (CurrentMenu.Parent != null && GUILayout.Button("^ Up ^"))
+            if (CurrentMenu.Parent != null && GUILayout.Button("^ Up ^", AavHelpers.BigButtonStyle))
             {
                 var prev = CurrentMenu;
                 CurrentMenu = CurrentMenu.Parent;
