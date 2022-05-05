@@ -10,7 +10,7 @@ Install all required prerequisites:
 
 * latest VRChat Avatar SDK (3.0 only!)
 * [Animator As Code](https://github.com/hai-vr/av3-animator-as-code)
-* **either** [VRC Gesture Manager](https://github.com/BlackStartx/VRC-Gesture-Manager) **or** (Av3 Emulator)[https://github.com/lyuma/Av3Emulator] (GestureManager version)
+* **either** [VRC Gesture Manager](https://github.com/BlackStartx/VRC-Gesture-Manager) **or** [Av3 Emulator](https://github.com/lyuma/Av3Emulator) (GestureManager version)
 
 Download a build from the [Releases](https://github.com/pimaker/animator-as-visual/releases) tab and import it into your avatar project.
 
