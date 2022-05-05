@@ -1,5 +1,6 @@
 ﻿#if UNITY_EDITOR
 
+using System;
 using UnityEngine;
 using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
@@ -25,6 +26,7 @@ namespace pi.AnimatorAsVisual
         [HideInInspector] public bool Dirty = false;
         [HideInInspector] public int CurrentlySelected = -1;
         [HideInInspector] public AavSubmenuItem CurrentMenu;
+        [HideInInspector, NonSerialized] public VRCExpressionsMenu ImportFromMenu;
     }
 }
 

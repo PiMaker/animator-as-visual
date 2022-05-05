@@ -11,7 +11,7 @@ using VRC.SDK3.Avatars.ScriptableObjects;
 namespace pi.AnimatorAsVisual
 {
     [Serializable]
-    [AavMenu("Raw AV3 Menu Entry")]
+    [AavMenu("Raw Av3 Menu Entry")]
     public class AavRawMenuItem : AavMenuItem
     {
         public VRCExpressionsMenu.Control.Label[] RawLabels;
@@ -24,7 +24,7 @@ namespace pi.AnimatorAsVisual
 
         private bool expertFoldout;
 
-        public AavRawMenuItem(VRCExpressionsMenu.Control baseControl)
+        public void SetDataFromControl(VRCExpressionsMenu.Control baseControl)
         {
             RawLabels = baseControl.labels;
             RawParameterName = baseControl.parameter.name;
@@ -33,6 +33,7 @@ namespace pi.AnimatorAsVisual
             RawStyle = baseControl.style;
             RawSubMenu = baseControl.subMenu;
             RawSubParameters = baseControl.subParameters.Select(x => x.name).ToArray();
+            Icon = baseControl.icon;
         }
 
         public override bool DrawEditor(AnimatorAsVisual aav)
@@ -53,13 +54,23 @@ namespace pi.AnimatorAsVisual
             if (parameters != null)
             {
                 var allParameters = parameters.Select(x => x.name).ToArray();
-                var currentIndex = Array.IndexOf(allParameters, parameterName.stringValue);
-                var newIndex = EditorGUILayout.Popup("Parameter", currentIndex, allParameters);
-                if (newIndex != currentIndex)
+                var currentIndex = parameterName.stringValue.Length > 0 ? Array.IndexOf(allParameters, parameterName.stringValue) : 0;
+                if (currentIndex < 0)
                 {
-                    parameterName.stringValue = allParameters[newIndex];
+                    EditorGUILayout.PropertyField(parameterName);
                 }
-                selectedParameter = parameters[newIndex];
+                else
+                {
+                    var newIndex = EditorGUILayout.Popup("Parameter", currentIndex, allParameters);
+                    if (newIndex >= 0)
+                    {
+                        if (newIndex != currentIndex)
+                        {
+                            parameterName.stringValue = allParameters[newIndex];
+                        }
+                        selectedParameter = parameters[newIndex];
+                    }
+                }
             }
             else
             {

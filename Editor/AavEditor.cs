@@ -41,6 +41,7 @@ namespace pi.AnimatorAsVisual
 
         private bool modified = false;
         private bool expertFoldoutOpen = false;
+        private bool importFoldoutOpen = false;
 
         private AavSubmenuItem _currentMenu;
         private AavSubmenuItem CurrentMenu
@@ -302,6 +303,7 @@ namespace pi.AnimatorAsVisual
 
             Data.Dirty = true;
             Selection.SetActiveObjectWithContext(go, null);
+            EditorGUIUtility.PingObject(go);
 
             GenerateMenu();
         }
@@ -432,6 +434,29 @@ namespace pi.AnimatorAsVisual
             var menuProp = dataSer.FindProperty("Menu");
             EditorGUILayout.PropertyField(menuProp);
 
+            GUILayout.Space(4);
+            if (importFoldoutOpen = EditorGUILayout.Foldout(importFoldoutOpen, "Import Existing Menu"))
+            {
+                GUILayout.Space(4);
+                Data.ImportFromMenu = EditorGUILayout.ObjectField("Import From", Data.ImportFromMenu, typeof(VRCExpressionsMenu), false) as VRCExpressionsMenu;
+                if (Data.ImportFromMenu != null && GUILayout.Button("Import!"))
+                {
+                    if (EditorUtility.DisplayDialog("Import Menu", "Are you sure you want to import this menu into the hierarchy? This will overwrite any existing menu entries on this AAV instance.", "Yes", "No"))
+                    {
+                        while (Data.Root.transform.childCount > 0)
+                        {
+                            DestroyImmediate(Data.Root.transform.GetChild(0).gameObject);
+                        }
+                        CurrentMenu = Data.Root;
+                        Selection.SetActiveObjectWithContext(Data, null);
+                        ImportMenuRecursive(Data.ImportFromMenu, Data.Root);
+                        Data.ImportFromMenu = null;
+                        Data.Dirty = true;
+                        importFoldoutOpen = false;
+                        EditorApplication.delayCall += GenerateMenu;
+                    }
+                }
+            }
             GUILayout.Space(4);
             if (expertFoldoutOpen = EditorGUILayout.Foldout(expertFoldoutOpen, "Expert Settings"))
             {
@@ -570,6 +595,26 @@ namespace pi.AnimatorAsVisual
             }
 
             return error;
+        }
+
+        private void ImportMenuRecursive(VRCExpressionsMenu menu, AavSubmenuItem parent)
+        {
+            foreach (var item in menu.controls)
+            {
+                var newObject = new GameObject(item.name);
+                newObject.transform.parent = parent.transform;
+                if (item.type == VRCExpressionsMenu.Control.ControlType.SubMenu)
+                {
+                    var submenu = newObject.AddComponent<AavSubmenuItem>();
+                    submenu.Icon = item.icon;
+                    ImportMenuRecursive(item.subMenu, submenu);
+                }
+                else
+                {
+                    var raw = newObject.AddComponent<AavRawMenuItem>();
+                    raw.SetDataFromControl(item);
+                }
+            }
         }
     }
 }
