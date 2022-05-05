@@ -466,6 +466,8 @@ namespace pi.AnimatorAsVisual
             serializedObject.Update();
             var avatarProp = serializedObject.FindProperty("Avatar");
             EditorGUILayout.PropertyField(avatarProp);
+            var menuProp = serializedObject.FindProperty("Menu");
+            EditorGUILayout.PropertyField(menuProp);
 
             GUILayout.Space(4);
             if (expertFoldoutOpen = EditorGUILayout.Foldout(expertFoldoutOpen, "Expert Settings"))

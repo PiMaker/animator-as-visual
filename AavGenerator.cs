@@ -48,20 +48,23 @@ namespace pi.AnimatorAsVisual
             avatar.expressionParameters.parameters = ptmp.Where(p => !p.name.StartsWith("AAV") || usedParams.Contains(p.name)).ToArray();
 
             // generate Av3 menu
-            avatar.expressionsMenu.controls.Clear();
-            var allMenus = AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(avatar.expressionsMenu));
+            var menu = aav.Menu ?? avatar.expressionsMenu;
+            menu.controls.Clear();
+            var allMenus = AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(menu));
             foreach (var oldMenu in allMenus)
             {
                 if (AssetDatabase.IsSubAsset(oldMenu))
                 {
+                    // destroy old sub menu data
                     ScriptableObject.DestroyImmediate(oldMenu, true);
                 }
             }
             foreach (var item in aav.Root.Items)
             {
-                avatar.expressionsMenu.controls.Add(item.GenerateAv3MenuEntry(aav));
+                menu.controls.Add(item.GenerateAv3MenuEntry(aav));
             }
 
+            EditorUtility.SetDirty(menu);
             EditorUtility.SetDirty(avatar.expressionsMenu);
             EditorUtility.SetDirty(avatar.expressionParameters);
 

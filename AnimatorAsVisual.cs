@@ -2,6 +2,7 @@
 
 using UnityEngine;
 using VRC.SDK3.Avatars.Components;
+using VRC.SDK3.Avatars.ScriptableObjects;
 
 namespace pi.AnimatorAsVisual
 {
@@ -11,6 +12,9 @@ namespace pi.AnimatorAsVisual
     public class AnimatorAsVisual : MonoBehaviour
     {
         public VRCAvatarDescriptor Avatar;
+
+        [Tooltip("This will default to the menu on your Avatar if left blank, but you can also specify a specific menu here to not overwrite existing entries. You can then use that menu as a 'sub menu' in a manually created expressions menu.")]
+        public VRCExpressionsMenu Menu;
 
         public AavSubmenuItem Root;
 
