@@ -394,8 +394,16 @@ namespace pi.AnimatorAsVisual
                 //CurrentMenu.Items.RemoveAt(Data.CurrentlySelected);
                 DestroyImmediate(entry.gameObject);
                 Data.CurrentlySelected--;
+                if (CurrentMenu.Items.ElementAt(Data.CurrentlySelected) is AavSubmenuItem)
+                {
+                    Data.CurrentlySelected = -1;
+                    Selection.SetActiveObjectWithContext(CurrentMenu.transform, null);
+                }
+                else
+                {
+                    Selection.SetActiveObjectWithContext(CurrentMenu.transform.GetChild(Data.CurrentlySelected), null);
+                }
                 Data.Dirty = true;
-                Selection.SetActiveObjectWithContext(CurrentMenu.transform.GetChild(Data.CurrentlySelected) ?? CurrentMenu.transform, null);
                 EditorApplication.delayCall += GenerateMenu;
                 return;
             }
