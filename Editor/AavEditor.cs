@@ -412,7 +412,7 @@ namespace pi.AnimatorAsVisual
                 EditorApplication.delayCall += GenerateMenu;
                 return;
             }
-            if (GUILayout.Button("Change Type"))
+            if (!(entry is AavTypeSelectorItem) && GUILayout.Button("Change Type"))
             {
                 var temp = new GameObject("Temp");
                 var holder = temp.AddComponent<AavTypeSelectorItem>();
