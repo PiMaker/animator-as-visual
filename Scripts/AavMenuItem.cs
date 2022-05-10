@@ -21,7 +21,7 @@ namespace pi.AnimatorAsVisual
         */
         public string AavName
         {
-            get => this.gameObject.name;
+            get => this.gameObject?.name;
             set {
                 if (this.gameObject.name != value)
                 {
@@ -42,6 +42,12 @@ namespace pi.AnimatorAsVisual
 
         // returns true if any element was modified
         public abstract bool DrawEditor(AnimatorAsVisual aav);
+
+        public static void CopyBasicData(AavMenuItem source, AavMenuItem target)
+        {
+            target.AavName = source.AavName;
+            target.Icon = source.Icon;
+        }
     }
 
     [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]

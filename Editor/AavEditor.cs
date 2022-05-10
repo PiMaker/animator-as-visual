@@ -412,6 +412,24 @@ namespace pi.AnimatorAsVisual
                 EditorApplication.delayCall += GenerateMenu;
                 return;
             }
+            if (GUILayout.Button("Change Type"))
+            {
+                var temp = new GameObject("Temp");
+                var holder = temp.AddComponent<AavTypeSelectorItem>();
+                AavMenuItem.CopyBasicData(entry, holder);
+
+                var go = entry.gameObject;
+                DestroyImmediate(entry);
+                var newComponent = go.AddComponent<AavTypeSelectorItem>();
+
+                AavTypeSelectorItem.CopyBasicData(holder, newComponent);
+                DestroyImmediate(temp);
+
+                Data.Dirty = true;
+                AddTypeSelectedHandlers();
+                EditorApplication.delayCall += GenerateMenu;
+                return;
+            }
             GUI.backgroundColor = resetCol;
             GUILayout.Space(16);
 
