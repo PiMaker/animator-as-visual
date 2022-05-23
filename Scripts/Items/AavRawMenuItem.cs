@@ -137,7 +137,11 @@ namespace pi.AnimatorAsVisual
                 value = this.RawValue,
                 style = this.RawStyle,
                 subMenu = this.RawSubMenu,
-                subParameters = this.RawSubParameters.Select(x => new VRCExpressionsMenu.Control.Parameter() { name = x }).ToArray(),
+                subParameters = this.RawSubParameters == null ?
+                    new VRCExpressionsMenu.Control.Parameter[0] :
+                    this.RawSubParameters
+                        .Select(x => new VRCExpressionsMenu.Control.Parameter() { name = x })
+                        .ToArray(),
             };
         }
     }
