@@ -29,7 +29,6 @@ namespace pi.AnimatorAsVisual
         private const float InnerSize = Size / 3;
         private const float Clamp = Size / 3;
         private const float ClampReset = Size / 1.7f;
-        private const int CursorSize = 50;
 
         private AnimatorAsVisual data = null;
         internal AnimatorAsVisual Data
@@ -88,6 +87,7 @@ namespace pi.AnimatorAsVisual
         private VisualElement radial;
 
         private RadialMenuItem[] buttons;
+        private List<GmgButton> selectionTuple;
 
         /*
             Resource loading and initialization
@@ -101,19 +101,19 @@ namespace pi.AnimatorAsVisual
 
         public void OnEnable()
         {
-            radial = RadialMenuUtility.Prefabs.NewCircle(Size, RadialMenuUtility.Colors.RadialCenter, RadialMenuUtility.Colors.RadialMiddle, RadialMenuUtility.Colors.RadialBorder);
+            radial = RadialMenuUtility.Prefabs.NewCircle(Size, RadialMenuUtility.Colors.RadialCenter, RadialMenuUtility.Colors.RadialCenter, RadialMenuUtility.Colors.CustomBorder);
             // overlap with imgui rectangle to get correct input events
             radial.style.top = -Size;
             radial.style.marginBottom = -Size;
             radial.style.alignSelf = Align.Center;
 
             borderHolder = radial.MyAdd(new VisualElement { pickingMode = PickingMode.Ignore, style = { position = Position.Absolute } });
-            radial.MyAdd(RadialMenuUtility.Prefabs.NewCircle((int)InnerSize, RadialMenuUtility.Colors.RadialInner, RadialMenuUtility.Colors.OuterBorder, Position.Absolute));
+            radial.MyAdd(RadialMenuUtility.Prefabs.NewCircle((int)InnerSize, RadialMenuUtility.Colors.RadialInner, RadialMenuUtility.Colors.CustomBorder, Position.Absolute));
 
             dataHolder = radial.MyAdd(new VisualElement { pickingMode = PickingMode.Ignore, style = { position = Position.Absolute } });
             puppetHolder = radial.MyAdd(new VisualElement { pickingMode = PickingMode.Ignore, style = { position = Position.Absolute } });
 
-            cursor = new RadialCursor(CursorSize);
+            cursor = new RadialCursor();
             radial.MyAdd(cursor);
             cursor.SetData(Clamp, ClampReset, (int)(InnerSize / 2f), (int)(Size / 2f), radial);
 
@@ -185,18 +185,18 @@ namespace pi.AnimatorAsVisual
             var pos = Event.current.mousePosition - rect.center;
             if (Event.current.type == EventType.MouseDown) OnClickStart(pos);
             if (Event.current.type == EventType.MouseUp) OnClickEnd(pos);
-            cursor.Update(pos);
+            if (selectionTuple != null) cursor.Update(pos, selectionTuple, false);
         }
 
         private void OnClickStart(Vector2 pos)
         {
-            var choice = cursor.GetChoice(pos, borderHolder);
+            var choice = cursor.GetChoice(buttons.Length, false);
             if (choice != -1 && buttons != null) buttons[choice].OnClickStart();
         }
 
         private void OnClickEnd(Vector2 pos)
         {
-            var choice = cursor.GetChoice(pos, borderHolder);
+            var choice = cursor.GetChoice(buttons.Length, false);
             if (choice != -1 && buttons != null) buttons[choice].OnClickEnd();
         }
 
@@ -213,10 +213,13 @@ namespace pi.AnimatorAsVisual
             var rStep = Mathf.PI * 2 / this.buttons.Length;
             var rCurrent = Mathf.PI;
 
+            selectionTuple = new List<GmgButton>();
+
             foreach (var item in this.buttons)
             {
-                item.Create(Size);
-                borderHolder.MyAdd(item.Border).transform.rotation = Quaternion.Euler(0, 0, current);
+                item.Create();
+                //borderHolder.MyAdd(item.Border).transform.rotation = Quaternion.Euler(0, 0, current);
+                var circle = RadialMenuUtility.Prefabs.NewSlice(Size, RadialMenuUtility.Colors.RadialCenter, RadialMenuUtility.Colors.CustomMain, RadialMenuUtility.Colors.CustomBorder);
 
                 item.DataHolder.transform.position = new Vector3(Mathf.Sin(rCurrent) * Size / 3, Mathf.Cos(rCurrent) * Size / 3, 0);
 
@@ -232,6 +235,7 @@ namespace pi.AnimatorAsVisual
                 }
 
                 dataHolder.MyAdd(item.DataHolder);
+                selectionTuple.Add(new GmgButton() { Button = item, Data = item.DataHolder, CircleElement = circle });
                 current += step;
                 rCurrent -= rStep;
             }
@@ -399,7 +403,11 @@ namespace pi.AnimatorAsVisual
                 //CurrentMenu.Items.RemoveAt(Data.CurrentlySelected);
                 DestroyImmediate(entry.gameObject);
                 Data.CurrentlySelected--;
-                if (CurrentMenu.Items.ElementAt(Data.CurrentlySelected) is AavSubmenuItem)
+                if (Data.CurrentlySelected == -1)
+                {
+                    Selection.SetActiveObjectWithContext(CurrentMenu.transform, null);
+                }
+                else if (CurrentMenu.Items.ElementAt(Data.CurrentlySelected) is AavSubmenuItem)
                 {
                     Data.CurrentlySelected = -1;
                     Selection.SetActiveObjectWithContext(CurrentMenu.transform, null);
