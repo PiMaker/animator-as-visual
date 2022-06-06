@@ -82,6 +82,7 @@ namespace pi.AnimatorAsVisual
 
         private RadialCursor cursor;
         private VisualElement borderHolder;
+        private VisualElement sliceHolder;
         private VisualElement dataHolder;
         private VisualElement puppetHolder;
         private VisualElement radial;
@@ -107,6 +108,7 @@ namespace pi.AnimatorAsVisual
             radial.style.marginBottom = -Size;
             radial.style.alignSelf = Align.Center;
 
+            sliceHolder = radial.MyAdd(new VisualElement { pickingMode = PickingMode.Ignore, style = { position = Position.Absolute } });
             borderHolder = radial.MyAdd(new VisualElement { pickingMode = PickingMode.Ignore, style = { position = Position.Absolute } });
             radial.MyAdd(RadialMenuUtility.Prefabs.NewCircle((int)InnerSize, RadialMenuUtility.Colors.RadialInner, RadialMenuUtility.Colors.CustomBorder, Position.Absolute));
 
@@ -205,10 +207,12 @@ namespace pi.AnimatorAsVisual
             this.buttons = buttons;
 
             borderHolder.Clear();
+            sliceHolder.Clear();
             dataHolder.Clear();
 
             var step = 360f / this.buttons.Length;
-            var current = step / 2 - 90;
+            var current = -step / 2;
+            var progress = 1f / this.buttons.Length;
 
             var rStep = Mathf.PI * 2 / this.buttons.Length;
             var rCurrent = Mathf.PI;
@@ -220,8 +224,13 @@ namespace pi.AnimatorAsVisual
                 item.Create();
                 //borderHolder.MyAdd(item.Border).transform.rotation = Quaternion.Euler(0, 0, current);
                 var circle = RadialMenuUtility.Prefabs.NewSlice(Size, RadialMenuUtility.Colors.RadialCenter, RadialMenuUtility.Colors.CustomMain, RadialMenuUtility.Colors.CustomBorder);
+                var circleHolder = new VisualElement();
+                circleHolder.Add(circle);
+                circle.Progress = progress;
 
                 item.DataHolder.transform.position = new Vector3(Mathf.Sin(rCurrent) * Size / 3, Mathf.Cos(rCurrent) * Size / 3, 0);
+                sliceHolder.MyAdd(circleHolder).transform.rotation = Quaternion.Euler(0, 0, current);
+                borderHolder.MyAdd(RadialMenuUtility.Prefabs.NewBorder(Size / 2)).transform.rotation = Quaternion.Euler(0, 0, current - 90);
 
                 // highlight selection
                 if (Data.CurrentlySelected != -1 && item == this.buttons[Data.CurrentlySelected + 1])
