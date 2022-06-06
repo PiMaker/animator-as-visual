@@ -248,6 +248,9 @@ namespace pi.AnimatorAsVisual
                 current += step;
                 rCurrent -= rStep;
             }
+
+            cursor.Selection = cursor.GetChoice(buttons.Length, false);
+            if (cursor.Selection != -1) RadialCursor.Sel(selectionTuple[cursor.Selection], true);
         }
 
         /*
