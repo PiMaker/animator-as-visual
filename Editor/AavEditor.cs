@@ -185,9 +185,21 @@ namespace pi.AnimatorAsVisual
                                                 GUILayout.ExpandWidth(true), GUILayout.Height(Size));
             if (Event.current.type == EventType.Layout) return;
             var pos = Event.current.mousePosition - rect.center;
+
+            // When a new button is hovered the RadialMenu will redraw the two buttons to update their colors.
+            // This may cause the currently selected button to lose their blue color.
+            // I will track this case and redraw the selected button when necessary.
+            var wasSelected = cursor.Selection == Data.CurrentlySelected + 1;
+
             if (Event.current.type == EventType.MouseDown) OnClickStart(pos);
             if (Event.current.type == EventType.MouseUp) OnClickEnd(pos);
             if (selectionTuple != null) cursor.Update(pos, selectionTuple, false);
+            if (wasSelected && cursor.Selection != Data.CurrentlySelected + 1 && Data.CurrentlySelected != -1) ReDrawSelected();
+        }
+
+        private void ReDrawSelected()
+        {
+            selectionTuple[Data.CurrentlySelected + 1].CircleElement.CenterColor = Color.blue;
         }
 
         private void OnClickStart(Vector2 pos)
@@ -235,12 +247,14 @@ namespace pi.AnimatorAsVisual
                 // highlight selection
                 if (Data.CurrentlySelected != -1 && item == this.buttons[Data.CurrentlySelected + 1])
                 {
-                    foreach (var ve in item.DataHolder.Children())
-                    {
-                        //ve.style.color = Color.magenta;
-                        ve.style.backgroundColor = Color.blue;
-                        ve.style.fontSize = 16;
-                    }
+                    circle.CenterColor = Color.blue;
+                    item.SelectedCenterColor = Color.blue;
+                    // foreach (var ve in item.DataHolder.Children())
+                    // {
+                    //     //ve.style.color = Color.magenta;
+                    //     ve.style.backgroundColor = Color.blue;
+                    //     ve.style.fontSize = 16;
+                    // }
                 }
 
                 dataHolder.MyAdd(item.DataHolder);
