@@ -10,9 +10,9 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-using GestureManager.Scripts.Core.Editor;
-using GestureManager.Scripts.Editor.Modules.Vrc3;
-using GestureManager.Scripts.Editor.Modules.Vrc3.RadialButtons;
+using BlackStartX.GestureManager.Editor.Lib;
+using BlackStartX.GestureManager.Editor.Modules.Vrc3;
+using BlackStartX.GestureManager.Editor.Modules.Vrc3.RadialSlices;
 
 using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
@@ -87,7 +87,7 @@ namespace pi.AnimatorAsVisual
         private VisualElement puppetHolder;
         private VisualElement radial;
 
-        private RadialMenuItem[] buttons;
+        private RadialSliceBase[] buttons;
 
         /*
             Resource loading and initialization
@@ -101,7 +101,7 @@ namespace pi.AnimatorAsVisual
 
         public void OnEnable()
         {
-            radial = RadialMenuUtility.Prefabs.NewCircle(Size, RadialMenuUtility.Colors.RadialCenter, RadialMenuUtility.Colors.RadialCenter, RadialMenuUtility.Colors.CustomBorder);
+            radial = RadialMenuUtility.Prefabs.NewCircle(Size, RadialMenuUtility.Colors.CenterIdle, RadialMenuUtility.Colors.CenterIdle, RadialMenuUtility.Colors.CustomBorder);
             // overlap with imgui rectangle to get correct input events
             radial.style.top = -Size;
             radial.style.marginBottom = -Size;
@@ -185,20 +185,9 @@ namespace pi.AnimatorAsVisual
             if (Event.current.type == EventType.Layout) return;
             var pos = Event.current.mousePosition - rect.center;
 
-            // When a new button is hovered the RadialMenu will redraw the two buttons to update their colors.
-            // This may cause the currently selected button to lose their blue color.
-            // I will track this case and redraw the selected button when necessary.
-            var wasSelected = cursor.Selection == Data.CurrentlySelected + 1;
-
             if (Event.current.type == EventType.MouseDown) OnClickStart(pos);
             if (Event.current.type == EventType.MouseUp) OnClickEnd(pos);
             if (buttons != null) cursor.Update(pos, buttons, false);
-            if (wasSelected && cursor.Selection != Data.CurrentlySelected + 1 && Data.CurrentlySelected != -1) ReDrawSelected();
-        }
-
-        private void ReDrawSelected()
-        {
-            buttons[Data.CurrentlySelected + 1].CircleElement.CenterColor = Color.blue;
         }
 
         private void OnClickStart(Vector2 pos)
@@ -213,7 +202,7 @@ namespace pi.AnimatorAsVisual
             if (choice != -1 && buttons != null) buttons[choice].OnClickEnd();
         }
 
-        private void SetButtons(RadialMenuItem[] buttons)
+        private void SetButtons(RadialSliceBase[] buttons)
         {
             this.buttons = buttons;
 
@@ -228,24 +217,23 @@ namespace pi.AnimatorAsVisual
             var rStep = Mathf.PI * 2 / this.buttons.Length;
             var rCurrent = Mathf.PI;
 
-            foreach (var item in this.buttons)
+            foreach (var slice in this.buttons)
             {
-                item.Create();
+                slice.Create();
                 //borderHolder.MyAdd(item.Border).transform.rotation = Quaternion.Euler(0, 0, current);
-                item.CircleElement = RadialMenuUtility.Prefabs.NewSlice(Size, RadialMenuUtility.Colors.RadialCenter, RadialMenuUtility.Colors.CustomMain, RadialMenuUtility.Colors.CustomBorder);
                 var circleHolder = new VisualElement();
-                circleHolder.Add(item.CircleElement);
-                item.CircleElement.Progress = progress;
+                circleHolder.Add(slice);
+                slice.Progress = progress;
 
-                item.DataHolder.transform.position = new Vector3(Mathf.Sin(rCurrent) * Size / 3, Mathf.Cos(rCurrent) * Size / 3, 0);
+                slice.DataHolder.transform.position = new Vector3(Mathf.Sin(rCurrent) * Size / 3, Mathf.Cos(rCurrent) * Size / 3, 0);
                 sliceHolder.MyAdd(circleHolder).transform.rotation = Quaternion.Euler(0, 0, current);
                 borderHolder.MyAdd(RadialMenuUtility.Prefabs.NewBorder(Size / 2)).transform.rotation = Quaternion.Euler(0, 0, current - 90);
 
                 // highlight selection
-                if (Data.CurrentlySelected != -1 && item == this.buttons[Data.CurrentlySelected + 1])
+                if (Data.CurrentlySelected != -1 && slice == this.buttons[Data.CurrentlySelected + 1])
                 {
-                    item.CircleElement.CenterColor = Color.blue;
-                    item.SelectedCenterColor = Color.blue;
+                    slice.IdleCenterColor = Color.blue;
+                    slice.SelectedCenterColor = Color.blue;
                     // foreach (var ve in item.DataHolder.Children())
                     // {
                     //     //ve.style.color = Color.magenta;
@@ -254,13 +242,10 @@ namespace pi.AnimatorAsVisual
                     // }
                 }
 
-                dataHolder.MyAdd(item.DataHolder);
+                dataHolder.MyAdd(slice.DataHolder);
                 current += step;
                 rCurrent -= rStep;
             }
-
-            cursor.Selection = cursor.GetChoice(buttons.Length, false);
-            if (cursor.Selection != -1) RadialCursor.Sel(buttons[cursor.Selection], true);
         }
 
         /*
@@ -272,15 +257,15 @@ namespace pi.AnimatorAsVisual
             if (PrefabUtility.IsPartOfPrefabAsset(Data.gameObject)) return;
             if (Data.CurrentlySelected >= CurrentMenu.Items.Count()) Data.CurrentlySelected = -1;
 
-            var list = new List<RadialMenuItem>();
-            list.Add(new RadialMenuButton(HandleAddControl, "Add Control", iconPlus));
+            var list = new List<RadialSliceBase>();
+            list.Add(new RadialSliceButton(HandleAddControl, "Add Control", iconPlus));
 
             var i = 0;
             foreach (var item in CurrentMenu.Items)
             {
                 var isSubmenu = item is AavSubmenuItem;
                 var label = (isSubmenu ? "[M] " : "") + item.AavName;
-                list.Add(new RadialMenuButton(HandleEntrySelected(i++), label, item.Icon));
+                list.Add(new RadialSliceButton(HandleEntrySelected(i++), label, item.Icon));
             }
 
             SetButtons(list.ToArray());
