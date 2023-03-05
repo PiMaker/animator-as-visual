@@ -88,7 +88,6 @@ namespace pi.AnimatorAsVisual
         private VisualElement radial;
 
         private RadialMenuItem[] buttons;
-        private List<GmgButton> selectionTuple;
 
         /*
             Resource loading and initialization
@@ -193,13 +192,13 @@ namespace pi.AnimatorAsVisual
 
             if (Event.current.type == EventType.MouseDown) OnClickStart(pos);
             if (Event.current.type == EventType.MouseUp) OnClickEnd(pos);
-            if (selectionTuple != null) cursor.Update(pos, selectionTuple, false);
+            if (buttons != null) cursor.Update(pos, buttons, false);
             if (wasSelected && cursor.Selection != Data.CurrentlySelected + 1 && Data.CurrentlySelected != -1) ReDrawSelected();
         }
 
         private void ReDrawSelected()
         {
-            selectionTuple[Data.CurrentlySelected + 1].CircleElement.CenterColor = Color.blue;
+            buttons[Data.CurrentlySelected + 1].CircleElement.CenterColor = Color.blue;
         }
 
         private void OnClickStart(Vector2 pos)
@@ -229,16 +228,14 @@ namespace pi.AnimatorAsVisual
             var rStep = Mathf.PI * 2 / this.buttons.Length;
             var rCurrent = Mathf.PI;
 
-            selectionTuple = new List<GmgButton>();
-
             foreach (var item in this.buttons)
             {
                 item.Create();
                 //borderHolder.MyAdd(item.Border).transform.rotation = Quaternion.Euler(0, 0, current);
-                var circle = RadialMenuUtility.Prefabs.NewSlice(Size, RadialMenuUtility.Colors.RadialCenter, RadialMenuUtility.Colors.CustomMain, RadialMenuUtility.Colors.CustomBorder);
+                item.CircleElement = RadialMenuUtility.Prefabs.NewSlice(Size, RadialMenuUtility.Colors.RadialCenter, RadialMenuUtility.Colors.CustomMain, RadialMenuUtility.Colors.CustomBorder);
                 var circleHolder = new VisualElement();
-                circleHolder.Add(circle);
-                circle.Progress = progress;
+                circleHolder.Add(item.CircleElement);
+                item.CircleElement.Progress = progress;
 
                 item.DataHolder.transform.position = new Vector3(Mathf.Sin(rCurrent) * Size / 3, Mathf.Cos(rCurrent) * Size / 3, 0);
                 sliceHolder.MyAdd(circleHolder).transform.rotation = Quaternion.Euler(0, 0, current);
@@ -247,7 +244,7 @@ namespace pi.AnimatorAsVisual
                 // highlight selection
                 if (Data.CurrentlySelected != -1 && item == this.buttons[Data.CurrentlySelected + 1])
                 {
-                    circle.CenterColor = Color.blue;
+                    item.CircleElement.CenterColor = Color.blue;
                     item.SelectedCenterColor = Color.blue;
                     // foreach (var ve in item.DataHolder.Children())
                     // {
@@ -258,13 +255,12 @@ namespace pi.AnimatorAsVisual
                 }
 
                 dataHolder.MyAdd(item.DataHolder);
-                selectionTuple.Add(new GmgButton() { Button = item, Data = item.DataHolder, CircleElement = circle });
                 current += step;
                 rCurrent -= rStep;
             }
 
             cursor.Selection = cursor.GetChoice(buttons.Length, false);
-            if (cursor.Selection != -1) RadialCursor.Sel(selectionTuple[cursor.Selection], true);
+            if (cursor.Selection != -1) RadialCursor.Sel(buttons[cursor.Selection], true);
         }
 
         /*
