@@ -1,0 +1,19 @@
+{
+    "name": "AAV-Editor",
+    "references": [
+        "GUID:6de432eb970d1d041acd80386b144104",
+        "GUID:184316a0752f3c74fbd758a2fb0f0d46",
+        "GUID:f5ea942962a55ed488e8a2962adce217"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

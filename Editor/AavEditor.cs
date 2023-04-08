@@ -6,17 +6,17 @@ using System.Text;
 using System.Linq;
 
 using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-using GestureManager.Scripts.Core.Editor;
-using GestureManager.Scripts.Editor.Modules.Vrc3;
-using GestureManager.Scripts.Editor.Modules.Vrc3.RadialButtons;
-
 using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
-using System.IO;
+
+using BlackStartX.GestureManager.Editor.Modules.Vrc3;
+using BlackStartX.GestureManager.Editor.Lib;
+using BlackStartX.GestureManager.Editor.Modules.Vrc3.RadialSlices;
+using BlackStartX.GestureManager.Runtime.VisualElements;
+using UnityEditor.Animations;
 
 namespace pi.AnimatorAsVisual
 {
@@ -84,11 +84,9 @@ namespace pi.AnimatorAsVisual
         private VisualElement borderHolder;
         private VisualElement sliceHolder;
         private VisualElement dataHolder;
-        private VisualElement puppetHolder;
-        private VisualElement radial;
+        private GmgCircleElement radial;
 
-        private RadialMenuItem[] buttons;
-        private List<GmgButton> selectionTuple;
+        private RadialSliceButton[] buttons;
 
         /*
             Resource loading and initialization
@@ -102,7 +100,7 @@ namespace pi.AnimatorAsVisual
 
         public void OnEnable()
         {
-            radial = RadialMenuUtility.Prefabs.NewCircle(Size, RadialMenuUtility.Colors.RadialCenter, RadialMenuUtility.Colors.RadialCenter, RadialMenuUtility.Colors.CustomBorder);
+            radial = RadialMenuUtility.Prefabs.NewCircle(Size, RadialMenuUtility.Colors.CenterIdle, RadialMenuUtility.Colors.CustomMain, RadialMenuUtility.Colors.CustomBorder);
             // overlap with imgui rectangle to get correct input events
             radial.style.top = -Size;
             radial.style.marginBottom = -Size;
@@ -110,10 +108,9 @@ namespace pi.AnimatorAsVisual
 
             sliceHolder = radial.MyAdd(new VisualElement { pickingMode = PickingMode.Ignore, style = { position = Position.Absolute } });
             borderHolder = radial.MyAdd(new VisualElement { pickingMode = PickingMode.Ignore, style = { position = Position.Absolute } });
-            radial.MyAdd(RadialMenuUtility.Prefabs.NewCircle((int)InnerSize, RadialMenuUtility.Colors.RadialInner, RadialMenuUtility.Colors.CustomBorder, Position.Absolute));
+            radial.MyAdd(RadialMenuUtility.Prefabs.NewCircle((int)InnerSize, new Color(0.2f, 0.2f, 0.2f, 1.0f), RadialMenuUtility.Colors.CustomBorder, Position.Absolute));
 
             dataHolder = radial.MyAdd(new VisualElement { pickingMode = PickingMode.Ignore, style = { position = Position.Absolute } });
-            puppetHolder = radial.MyAdd(new VisualElement { pickingMode = PickingMode.Ignore, style = { position = Position.Absolute } });
 
             cursor = new RadialCursor();
             radial.MyAdd(cursor);
@@ -186,20 +183,9 @@ namespace pi.AnimatorAsVisual
             if (Event.current.type == EventType.Layout) return;
             var pos = Event.current.mousePosition - rect.center;
 
-            // When a new button is hovered the RadialMenu will redraw the two buttons to update their colors.
-            // This may cause the currently selected button to lose their blue color.
-            // I will track this case and redraw the selected button when necessary.
-            var wasSelected = cursor.Selection == Data.CurrentlySelected + 1;
-
             if (Event.current.type == EventType.MouseDown) OnClickStart(pos);
             if (Event.current.type == EventType.MouseUp) OnClickEnd(pos);
-            if (selectionTuple != null) cursor.Update(pos, selectionTuple, false);
-            if (wasSelected && cursor.Selection != Data.CurrentlySelected + 1 && Data.CurrentlySelected != -1) ReDrawSelected();
-        }
-
-        private void ReDrawSelected()
-        {
-            selectionTuple[Data.CurrentlySelected + 1].CircleElement.CenterColor = Color.blue;
+            if (buttons != null) cursor.Update(pos, buttons, false);
         }
 
         private void OnClickStart(Vector2 pos)
@@ -214,7 +200,7 @@ namespace pi.AnimatorAsVisual
             if (choice != -1 && buttons != null) buttons[choice].OnClickEnd();
         }
 
-        private void SetButtons(RadialMenuItem[] buttons)
+        private void SetButtons(RadialSliceButton[] buttons)
         {
             this.buttons = buttons;
 
@@ -229,42 +215,30 @@ namespace pi.AnimatorAsVisual
             var rStep = Mathf.PI * 2 / this.buttons.Length;
             var rCurrent = Mathf.PI;
 
-            selectionTuple = new List<GmgButton>();
-
             foreach (var item in this.buttons)
             {
                 item.Create();
-                //borderHolder.MyAdd(item.Border).transform.rotation = Quaternion.Euler(0, 0, current);
-                var circle = RadialMenuUtility.Prefabs.NewSlice(Size, RadialMenuUtility.Colors.RadialCenter, RadialMenuUtility.Colors.CustomMain, RadialMenuUtility.Colors.CustomBorder);
+                item.Progress = progress;
                 var circleHolder = new VisualElement();
-                circleHolder.Add(circle);
-                circle.Progress = progress;
+                circleHolder.Add(item);
 
                 item.DataHolder.transform.position = new Vector3(Mathf.Sin(rCurrent) * Size / 3, Mathf.Cos(rCurrent) * Size / 3, 0);
                 sliceHolder.MyAdd(circleHolder).transform.rotation = Quaternion.Euler(0, 0, current);
-                borderHolder.MyAdd(RadialMenuUtility.Prefabs.NewBorder(Size / 2)).transform.rotation = Quaternion.Euler(0, 0, current - 90);
+                var border = RadialMenuUtility.Prefabs.NewBorder(Size / 2);
+                border.transform.rotation = Quaternion.Euler(0, 0, current - 90);
 
-                // highlight selection
+                // highlight selection with an overlay circle
                 if (Data.CurrentlySelected != -1 && item == this.buttons[Data.CurrentlySelected + 1])
                 {
-                    circle.CenterColor = Color.blue;
+                    item.IdleCenterColor = Color.blue;
                     item.SelectedCenterColor = Color.blue;
-                    // foreach (var ve in item.DataHolder.Children())
-                    // {
-                    //     //ve.style.color = Color.magenta;
-                    //     ve.style.backgroundColor = Color.blue;
-                    //     ve.style.fontSize = 16;
-                    // }
                 }
 
-                dataHolder.MyAdd(item.DataHolder);
-                selectionTuple.Add(new GmgButton() { Button = item, Data = item.DataHolder, CircleElement = circle });
+                borderHolder.Add(border);
+                dataHolder.Add(item.DataHolder);
                 current += step;
                 rCurrent -= rStep;
             }
-
-            cursor.Selection = cursor.GetChoice(buttons.Length, false);
-            if (cursor.Selection != -1) RadialCursor.Sel(selectionTuple[cursor.Selection], true);
         }
 
         /*
@@ -276,15 +250,15 @@ namespace pi.AnimatorAsVisual
             if (PrefabUtility.IsPartOfPrefabAsset(Data.gameObject)) return;
             if (Data.CurrentlySelected >= CurrentMenu.Items.Count()) Data.CurrentlySelected = -1;
 
-            var list = new List<RadialMenuItem>();
-            list.Add(new RadialMenuButton(HandleAddControl, "Add Control", iconPlus));
+            var list = new List<RadialSliceButton>();
+            list.Add(new RadialSliceButton(HandleAddControl, "Add Control", iconPlus));
 
             var i = 0;
             foreach (var item in CurrentMenu.Items)
             {
                 var isSubmenu = item is AavSubmenuItem;
                 var label = (isSubmenu ? "[M] " : "") + item.AavName;
-                list.Add(new RadialMenuButton(HandleEntrySelected(i++), label, item.Icon));
+                list.Add(new RadialSliceButton(HandleEntrySelected(i++), label, item.Icon));
             }
 
             SetButtons(list.ToArray());
@@ -396,15 +370,15 @@ namespace pi.AnimatorAsVisual
             var currentItemCount = CurrentMenu.Items.Count();
 
             if (Data.CurrentlySelected >= currentItemCount) Data.CurrentlySelected = -1;
-            if (Data.CurrentlySelected == -1)
+            /*if (Data.CurrentlySelected == -1)
             {
                 GUILayout.Label("Please select an entry to edit.");
                 GUILayout.Space(10);
                 return;
-            }
+            }*/
 
             modified = false;
-            var entry = CurrentMenu.Items.ElementAt(Data.CurrentlySelected);
+            var entry = Data.CurrentlySelected == -1 ? CurrentMenu : CurrentMenu.Items.ElementAt(Data.CurrentlySelected);
 
             Undo.RecordObject(entry, "Animator As Visual");
 
@@ -485,6 +459,13 @@ namespace pi.AnimatorAsVisual
             EditorGUILayout.PropertyField(avatarProp);
             var menuProp = dataSer.FindProperty("Menu");
             EditorGUILayout.PropertyField(menuProp);
+
+            if (avatarProp.objectReferenceValue is VRCAvatarDescriptor avatar && avatar.baseAnimationLayers != null && avatar.baseAnimationLayers.Length >= 5)
+            {
+                GUI.enabled = false;
+                EditorGUILayout.ObjectField("FX Animator", (AnimatorController)avatar.baseAnimationLayers[4].animatorController, typeof(AnimatorController), false);
+                GUI.enabled = true;
+            }
 
             GUILayout.Space(4);
             if (importFoldoutOpen = EditorGUILayout.Foldout(importFoldoutOpen, "Import Existing Menu"))

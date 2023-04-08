@@ -1,0 +1,15 @@
+{
+    "name": "AAV",
+    "references": [
+        "GUID:21dee7794a6343ccbdcd48b92f941953"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
