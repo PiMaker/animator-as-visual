@@ -99,13 +99,15 @@ namespace pi.AnimatorAsVisual
             return modified;
         }
 
-        public override void GenerateAnimator(AacFlBase aac, AnimatorAsVisual aav, List<string> usedAv3Parameters)
+        public override void GenerateAnimator(AavGenerator gen)
         {
+            var aac = gen.AAC;
+
             aac.RemoveAllSupportingLayers(this.ParameterName);
             var fx = aac.CreateSupportingFxLayer(this.ParameterName);
             fx.WithAvatarMaskNoTransforms();
 
-            var param = AavGenerator.MakeAv3Parameter(aav, usedAv3Parameters, fx, this.ParameterName, this.Saved, this.Default);
+            var param = gen.MakeAv3Parameter(fx, this.ParameterName, this.Saved, this.Default);
 
             var state = fx.NewState("Updating Blend Shape")
                 .MotionTime(param)

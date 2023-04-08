@@ -31,6 +31,9 @@ namespace pi.AnimatorAsVisual
             this.DisableMouthMovement = this.DisableMouthMovement.UpdateWith(() => EditorGUILayout.Toggle(
                 new GUIContent("Disable Mouth Movement", "Disable lip-sync while this toggle is active."),
                     this.DisableMouthMovement), ref modified);
+            this.TransitionDuration = this.TransitionDuration.UpdateWith(() => EditorGUILayout.FloatField(
+                new GUIContent("Transition Duration", "How long it takes to transition between states (0 for immediate toggle)."),
+                    this.TransitionDuration), ref modified);
 
             // Handle ReorderableLists
             if (RLToggles == null || RLBlendShapes == null || RLMaterialSwaps == null || RLMaterialParams == null)

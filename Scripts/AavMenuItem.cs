@@ -37,7 +37,7 @@ namespace pi.AnimatorAsVisual
 
         public string ParameterName => AavName + "-" + UUID;
 
-        public abstract void GenerateAnimator(AacFlBase aac, AnimatorAsVisual aav, List<string> usedAv3Parameters);
+        public abstract void GenerateAnimator(AavGenerator gen);
         public abstract VRCExpressionsMenu.Control GenerateAv3MenuEntry(AnimatorAsVisual aav);
 
         // returns true if any element was modified

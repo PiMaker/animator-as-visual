@@ -44,7 +44,7 @@ namespace pi.AnimatorAsVisual
             }
         }
 
-        public override void GenerateAnimator(AacFlBase aac, AnimatorAsVisual aav, List<string> usedAv3Parameters)
+        public override void GenerateAnimator(AavGenerator gen)
         {
             // do nothing
         }

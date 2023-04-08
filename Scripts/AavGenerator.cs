@@ -12,15 +12,40 @@ using VRC.SDK3.Avatars.ScriptableObjects;
 
 namespace pi.AnimatorAsVisual
 {
-    public static class AavGenerator
+    public class AavGenerator
     {
-        public static void Generate(AnimatorAsVisual aav)
+        public static AavGenerator Instance { get; private set; }
+
+        public AacFlBase AAC { get; private set; }
+        public AnimatorAsVisual AAV { get; private set; }
+        public AacFlLayer MainFX { get; private set; }
+        
+        private readonly List<string> usedParams = new List<string>();
+        private readonly List<(Motion on, Motion off, AacFlFloatParameter param)> blendTreeMotions = new List<(Motion on, Motion off, AacFlFloatParameter param)>();
+
+        public int StatsBlendTreeMotions => blendTreeMotions.Count;
+        public int StatsUsedParameters => usedParams.Count;
+        public int StatsUpdatedUsedParameters { get; private set; }
+        public int StatsLayers { get; private set; }
+
+        public AavGenerator(AnimatorAsVisual aav)
         {
-            var avatar = aav.Avatar;
-            var usedParams = new List<string>();
+            this.AAV = aav;
+            if (Instance != null)
+                Debug.LogError("AavGenerator already exists!");
+            Instance = this;
+        }
+
+        public void Generate()
+        {
+            var avatar = AAV.Avatar;
+            usedParams.Clear();
+            blendTreeMotions.Clear();
+            StatsUpdatedUsedParameters = 0;
+            StatsLayers = 0;
 
             // TODO: Move somewhere more generic
-            var remotingRoot = aav.Avatar.transform.Find("AAV-Remoting-Root")?.gameObject;
+            var remotingRoot = AAV.Avatar.transform.Find("AAV-Remoting-Root")?.gameObject;
             if (remotingRoot != null)
             {
                 var removeThese = new List<GameObject>();
@@ -32,7 +57,7 @@ namespace pi.AnimatorAsVisual
             // Generate AAC instance
             var fx = (AnimatorController)avatar.baseAnimationLayers[4].animatorController;
             var systemName = "AAV-" + avatar.gameObject.name;
-            var aac = AacV0.Create(new AacConfiguration
+            AAC = AacV0.Create(new AacConfiguration
             {
                 SystemName = systemName,
                 AvatarDescriptor = avatar,
@@ -40,33 +65,67 @@ namespace pi.AnimatorAsVisual
                 DefaultValueRoot = avatar.transform,
                 AssetContainer = fx,
                 AssetKey = "AnimatorAsVisual",
-                DefaultsProvider = new AacDefaultsProvider(writeDefaults: aav.WriteDefaults),
+                DefaultsProvider = new AacDefaultsProvider(writeDefaults: AAV.WriteDefaults),
             });
-            aac.ClearPreviousAssets();
+            AAC.ClearPreviousAssets();
 
             // clean previous data
             fx.layers = fx.layers.Where(l => !l.name.StartsWith("AAV-")).ToArray();
-            fx.parameters = fx.parameters.Where(p => !p.name.StartsWith("AAV")).ToArray();
+            fx.parameters = fx.parameters.Where(p => !p.name.StartsWith("AAV") && !p.name.StartsWith("RemoteAAV")).ToArray();
 
-            aac.RemoveAllMainLayers();
-            var mainFx = aac.CreateMainFxLayer();
-            mainFx.WithAvatarMaskNoTransforms(); // FIXME? make masks configurable?
+            AAC.RemoveAllMainLayers();
+            MainFX = AAC.CreateMainFxLayer();
+            MainFX.WithAvatarMaskNoTransforms(); // FIXME? make masks configurable?
 
             // generate a layer for every entry
-            foreach (var item in aav.Root.EnumerateRecursive())
+            foreach (var item in AAV.Root.EnumerateRecursive())
             {
-                item.GenerateAnimator(aac, aav, usedParams);
+                item.GenerateAnimator(this);
             }
 
             // clean up Av3 parameters
             var ptmp = new List<VRCExpressionParameters.Parameter>(avatar.expressionParameters.parameters ?? new VRCExpressionParameters.Parameter[0]);
             avatar.expressionParameters.parameters = ptmp.Where(p => !p.name.StartsWith("AAV") || usedParams.Contains(p.name)).ToArray();
 
-            // we don't actually want the mainFx layer, it is empty anyway
-            fx.layers = fx.layers.Where(l => l.name != systemName).ToArray();
+            if (blendTreeMotions.Count == 0)
+            {
+                // no need to keep main layer
+                fx.layers = fx.layers.Where(l => l.name != systemName).ToArray();
+            }
+            else
+            {
+                // use main layer for combined direct blend tree motions
+                var tree = AAC.NewBlendTreeAsRaw();
+                tree.name = "AAVInternal-BlendTree (WD On)";
+                tree.blendType = BlendTreeType.Direct;
+                tree.useAutomaticThresholds = false;
+
+                var weight = MainFX.FloatParameter("AAVInternal-BlendTree-Weight");
+                MainFX.OverrideValue(weight, 1.0f);
+
+                var childMotions = new List<ChildMotion>();
+
+                foreach (var motion in blendTreeMotions)
+                {
+                    var childTree = AAC.NewBlendTreeAsRaw();
+                    childTree.name = motion.param.Name;
+                    childTree.blendType = BlendTreeType.Simple1D;
+                    childTree.AddChild(motion.off, 0.0f);
+                    childTree.AddChild(motion.on, 1.0f);
+                    childTree.blendParameter = motion.param.Name;
+                    childMotions.Add(new ChildMotion { motion = childTree, directBlendParameter = weight.Name, threshold = 0.0f, timeScale = 1.0f });
+                }
+
+                tree.children = childMotions.ToArray();
+                tree.blendParameter = "AAVInternal-BlendTree-Weight";
+
+                MainFX.NewState("AAVInternal-BlendTree State (WD On)").WithAnimation(tree).WithWriteDefaultsSetTo(true);
+            }
+
+            StatsLayers = fx.layers.Count(l => l.name.StartsWith("AAV") || l.name.StartsWith("RemoteAAV"));
 
             // generate Av3 menu
-            var menu = aav.Menu ?? avatar.expressionsMenu;
+            var menu = AAV.Menu ?? avatar.expressionsMenu;
             menu.controls.Clear();
             var allMenus = AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(menu));
             foreach (var oldMenu in allMenus)
@@ -77,9 +136,9 @@ namespace pi.AnimatorAsVisual
                     ScriptableObject.DestroyImmediate(oldMenu, true);
                 }
             }
-            foreach (var item in aav.Root.Items)
+            foreach (var item in AAV.Root.Items)
             {
-                var ctrl = item.GenerateAv3MenuEntry(aav);
+                var ctrl = item.GenerateAv3MenuEntry(AAV);
                 if (ctrl != null)
                     menu.controls.Add(ctrl);
             }
@@ -94,23 +153,41 @@ namespace pi.AnimatorAsVisual
         /*
             Helper Functions
         */
-        public static AacFlBoolParameter MakeAv3Parameter(AnimatorAsVisual aav, List<string> usedParams, AacFlLayer fx, string name, bool saved, bool @default)
+        public AacFlBoolParameter MakeAv3Parameter(AacFlLayer fx, string name, bool saved, bool @default)
         {
-            return (AacFlBoolParameter)MakeAv3Parameter(aav, usedParams, fx, name, saved, VRCExpressionParameters.ValueType.Bool, @default ? 1.0f : 0.0f);
+            var param = (AacFlBoolParameter)MakeAv3ParameterInternal(fx, name, saved, VRCExpressionParameters.ValueType.Bool, @default ? 1.0f : 0.0f);
+            if (param != null)
+                fx.OverrideValue(param, @default);
+            return param;
         }
-        public static AacFlIntParameter MakeAv3Parameter(AnimatorAsVisual aav, List<string> usedParams, AacFlLayer fx, string name, bool saved, int @default)
+        public AacFlIntParameter MakeAv3Parameter(AacFlLayer fx, string name, bool saved, int @default)
         {
-            return (AacFlIntParameter)MakeAv3Parameter(aav, usedParams, fx, name, saved, VRCExpressionParameters.ValueType.Int, (float)@default);
+            var param = (AacFlIntParameter)MakeAv3ParameterInternal(fx, name, saved, VRCExpressionParameters.ValueType.Int, (float)@default);
+            if (param != null)
+                fx.OverrideValue(param, @default);
+            return param;
         }
-        public static AacFlFloatParameter MakeAv3Parameter(AnimatorAsVisual aav, List<string> usedParams, AacFlLayer fx, string name, bool saved, float @default)
+        public AacFlFloatParameter MakeAv3Parameter(AacFlLayer fx, string name, bool saved, float @default)
         {
-            return (AacFlFloatParameter)MakeAv3Parameter(aav, usedParams, fx, name, saved, VRCExpressionParameters.ValueType.Float, @default);
+            var param = (AacFlFloatParameter)MakeAv3ParameterInternal(fx, name, saved, VRCExpressionParameters.ValueType.Float, @default);
+            if (param != null)
+                fx.OverrideValue(param, @default);
+            return param;
         }
-        public static AacFlParameter MakeAv3Parameter(AnimatorAsVisual aav, List<string> usedParams, AacFlLayer fx, string name, bool saved, VRCExpressionParameters.ValueType type, float @default)
+
+        public AacFlFloatParameter MakeAv3ParameterBoolFloat(AacFlLayer fx, string name, bool saved, bool @default)
+        {
+            var param = (AacFlFloatParameter)MakeAv3ParameterInternal(fx, name, saved, VRCExpressionParameters.ValueType.Float, @default ? 1.0f : 0.0f, true);
+            if (param != null)
+                fx.OverrideValue(param, @default ? 1.0f : 0.0f);
+            return param;
+        }
+
+        private AacFlParameter MakeAv3ParameterInternal(AacFlLayer fx, string name, bool saved, VRCExpressionParameters.ValueType type, float @default, bool forceFloatFx = false)
         {
             name = "AAV" + name;
 
-            var Parameters = aav.Avatar.expressionParameters;
+            var Parameters = AAV.Avatar.expressionParameters;
             var update = false;
             var parm = Parameters.FindParameter(name);
             if (parm == null) update = true;
@@ -138,9 +215,13 @@ namespace pi.AnimatorAsVisual
                 });
                 Parameters.parameters = ptmp.ToArray();
                 Debug.Log("AAV: Added or updated Avatar Parameter: " + name);
+                StatsUpdatedUsedParameters++;
             }
 
             usedParams.Add(name);
+
+            if (forceFloatFx)
+                return fx.FloatParameter(name);
 
             switch (type)
             {
@@ -153,6 +234,11 @@ namespace pi.AnimatorAsVisual
                 default:
                     return null;
             }
+        }
+
+        public void RegisterBlendTreeMotion(Motion on, Motion off, AacFlFloatParameter param)
+        {
+            blendTreeMotions.Add((on, off, param));
         }
     }
 }

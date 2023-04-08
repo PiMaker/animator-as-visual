@@ -39,8 +39,11 @@ namespace pi.AnimatorAsVisual
             return false;
         }
 
-        public override void GenerateAnimator(AacFlBase aac, AnimatorAsVisual aav, List<string> usedAv3Parameters)
+        public override void GenerateAnimator(AavGenerator gen)
         {
+            var aac = gen.AAC;
+            var aav = gen.AAV;
+
             if (string.IsNullOrEmpty(this.TargetParameterName))
             {
                 Debug.LogError("Remoting Item without target parameter found: " + this.AavName);
@@ -98,7 +101,7 @@ namespace pi.AnimatorAsVisual
             var fx = aac.CreateSupportingFxLayer(this.ParameterName);
             fx.WithAvatarMaskNoTransforms();
 
-            var triggerParam = AavGenerator.MakeAv3Parameter(aav, usedAv3Parameters, fx, "RemoteAAV-" + this.TargetParameterName, false, false);
+            var triggerParam = gen.MakeAv3Parameter(fx, "RemoteAAV-" + this.TargetParameterName, false, false);
             var rcvParam = fx.BoolParameter("RemoteAAV-RCV-" + this.TargetParameterName);
             var targetParam = fx.BoolParameter(this.TargetParameterName);
 

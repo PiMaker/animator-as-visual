@@ -21,7 +21,7 @@ namespace pi.AnimatorAsVisual
 
         public Action<AavTypeSelectorItem, Type> TypeSelected;
 
-        public override void GenerateAnimator(AacFlBase aac, AnimatorAsVisual aav, List<string> usedAv3Parameters)
+        public override void GenerateAnimator(AavGenerator gen)
         {
             Debug.LogWarning("You still have an Entry in your menu without a type selected! You should probably change that...");
         }

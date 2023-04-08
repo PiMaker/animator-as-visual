@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using AnimatorAsCode.V0;
+using UnityEngine;
 using VRC.SDK3.Avatars.ScriptableObjects;
 
 namespace pi.AnimatorAsVisual
@@ -15,6 +16,7 @@ namespace pi.AnimatorAsVisual
         public bool Saved = true;
 
         public bool DisableMouthMovement = false;
+        public float TransitionDuration = 0.0f;
 
         public List<AavGameObjectToggle> Toggles = new List<AavGameObjectToggle>();
         public List<AavBlendShapeToggle> BlendShapes = new List<AavBlendShapeToggle>();
@@ -24,31 +26,50 @@ namespace pi.AnimatorAsVisual
         /*
             Animator Generation Logic for all kinds of actions (List<T>s above)
         */
-        public override void GenerateAnimator(AacFlBase aac, AnimatorAsVisual aav, List<string> usedAv3Parameters)
+        public override void GenerateAnimator(AavGenerator gen)
         {
+            var aac = gen.AAC;
             aac.RemoveAllSupportingLayers(this.ParameterName);
-            var fx = aac.CreateSupportingFxLayer(this.ParameterName);
-            fx.WithAvatarMaskNoTransforms();
 
-            AacFlState shown, hidden;
-            if (Default)
+            if (this.DisableMouthMovement || TransitionDuration > 0.0f)
             {
-                shown = GenerateSimpleState(aac, fx, true);
-                hidden = GenerateSimpleState(aac, fx, false);
+                // have to use legacy method with separate layer
+                var fx = aac.CreateSupportingFxLayer(this.ParameterName);
+                fx.WithAvatarMaskNoTransforms();
+
+                AacFlState shown, hidden;
+                if (Default)
+                {
+                    shown = GenerateSimpleState(aac, fx, true);
+                    hidden = GenerateSimpleState(aac, fx, false);
+                }
+                else
+                {
+                    hidden = GenerateSimpleState(aac, fx, false);
+                    shown = GenerateSimpleState(aac, fx, true);
+                }
+
+                var param = gen.MakeAv3Parameter(fx, this.ParameterName, this.Saved, this.Default);
+
+                if (Mathf.Approximately(TransitionDuration, 0.0f))
+                {
+                    shown.TransitionsTo(hidden).When(param.IsFalse());
+                    hidden.TransitionsTo(shown).When(param.IsTrue());
+                }
+                else
+                {
+                    shown.TransitionsTo(hidden).WithTransitionDurationSeconds(TransitionDuration).When(param.IsFalse());
+                    hidden.TransitionsTo(shown).WithTransitionDurationSeconds(TransitionDuration).When(param.IsTrue());
+                }
             }
             else
             {
-                hidden = GenerateSimpleState(aac, fx, false);
-                shown = GenerateSimpleState(aac, fx, true);
+                var param = gen.MakeAv3ParameterBoolFloat(gen.MainFX, this.ParameterName, this.Saved, this.Default);
+                gen.RegisterBlendTreeMotion(GenerateSimpleClip(aac, true).Clip, GenerateSimpleClip(aac, false).Clip, param);
             }
-
-            var param = AavGenerator.MakeAv3Parameter(aav, usedAv3Parameters, fx, this.ParameterName, this.Saved, this.Default);
-
-            shown.TransitionsTo(hidden).When(param.IsFalse());
-            hidden.TransitionsTo(shown).When(param.IsTrue());
         }
 
-        private AacFlState GenerateSimpleState(AacFlBase aac, AacFlLayer fx, bool enabled)
+        private AacFlClip GenerateSimpleClip(AacFlBase aac, bool enabled)
         {
             var clip = aac.NewClip();
             foreach (var toggle in this.Toggles)
@@ -80,6 +101,12 @@ namespace pi.AnimatorAsVisual
                     }
                 }
             });
+            return clip;
+        }
+
+        private AacFlState GenerateSimpleState(AacFlBase aac, AacFlLayer fx, bool enabled)
+        {
+            var clip = GenerateSimpleClip(aac, enabled);
             var state = fx.NewState(enabled ? "Enabled" : "Disabled").WithAnimation(clip);
             if (this.DisableMouthMovement)
             {

@@ -17,6 +17,7 @@ using BlackStartX.GestureManager.Editor.Lib;
 using BlackStartX.GestureManager.Editor.Modules.Vrc3.RadialSlices;
 using BlackStartX.GestureManager.Runtime.VisualElements;
 using UnityEditor.Animations;
+using System.Diagnostics;
 
 namespace pi.AnimatorAsVisual
 {
@@ -41,6 +42,9 @@ namespace pi.AnimatorAsVisual
         private bool modified = false;
         private bool expertFoldoutOpen = false;
         private bool importFoldoutOpen = false;
+
+        private string lastGeneratedStatus = null;
+        private DateTime lastGeneratedTime = DateTime.MinValue;
 
         private AavSubmenuItem _currentMenu;
         private AavSubmenuItem CurrentMenu
@@ -518,9 +522,33 @@ namespace pi.AnimatorAsVisual
                 if (GUILayout.Button("Synchronize!", AavHelpers.BigButtonStyle))
                 {
                     Data.Dirty = false;
-                    AavGenerator.Generate(Data);
+
+                    var stopwatch = new Stopwatch();
+                    stopwatch.Start();
+                    if (AavGenerator.Instance == null)
+                        new AavGenerator(Data); // cursed
+                    try
+                    {
+                        AavGenerator.Instance.Generate();
+                        stopwatch.Stop();
+                        lastGeneratedStatus = $"Synchronized {AavGenerator.Instance.StatsLayers} layers + {AavGenerator.Instance.StatsBlendTreeMotions} direct blend tree motions using {AavGenerator.Instance.StatsUsedParameters} parameters ({AavGenerator.Instance.StatsUpdatedUsedParameters} modified) in {stopwatch.ElapsedMilliseconds}ms";
+                        lastGeneratedTime = DateTime.UtcNow;
+                    }
+                    catch (Exception e)
+                    {
+                        lastGeneratedStatus = $"ERROR: {e.Message}";
+                        lastGeneratedTime = DateTime.UtcNow;
+                    }
                 }
                 GUI.backgroundColor = resetCol;
+            }
+
+            if (lastGeneratedStatus != null && (DateTime.UtcNow - lastGeneratedTime).TotalSeconds < 10)
+            {
+                var resetCol = GUI.color;
+                GUI.color = lastGeneratedStatus.StartsWith("ERROR") ? Color.red : Color.green;
+                GUILayout.Label(lastGeneratedStatus);
+                GUI.color = resetCol;
             }
 
             GUILayout.Space(16);
