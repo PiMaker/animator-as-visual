@@ -28,6 +28,9 @@ namespace pi.AnimatorAsVisual
             this.Saved = this.Saved.UpdateWith(() => EditorGUILayout.Toggle(
                 new GUIContent("Save State", "Should this option be saved, e.g. between worlds or when you restart VRChat."),
                     this.Saved), ref modified);
+            this.DisableMouthMovement = this.DisableMouthMovement.UpdateWith(() => EditorGUILayout.Toggle(
+                new GUIContent("Disable Mouth Movement", "Disable lip-sync while this toggle is active."),
+                    this.DisableMouthMovement), ref modified);
 
             // Handle ReorderableLists
             if (RLToggles == null || RLBlendShapes == null || RLMaterialSwaps == null || RLMaterialParams == null)
@@ -286,8 +289,8 @@ namespace pi.AnimatorAsVisual
             RLBlendShapes.DoLayoutList();
             GUILayout.Label("Material Parameters", headerStyle);
             RLMaterialParams.DoLayoutList();
-            GUILayout.Label("Material Swaps", headerStyle);
-            RLMaterialSwaps.DoLayoutList();
+            //GUILayout.Label("Material Swaps", headerStyle);
+            //RLMaterialSwaps.DoLayoutList();
 
             return modified;
         }

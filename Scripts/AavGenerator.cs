@@ -19,20 +19,35 @@ namespace pi.AnimatorAsVisual
             var avatar = aav.Avatar;
             var usedParams = new List<string>();
 
+            // TODO: Move somewhere more generic
+            var remotingRoot = aav.Avatar.transform.Find("AAV-Remoting-Root")?.gameObject;
+            if (remotingRoot != null)
+            {
+                var removeThese = new List<GameObject>();
+                for (int i = 0; i < remotingRoot.transform.childCount; i++)
+                    removeThese.Add(remotingRoot.transform.GetChild(i).gameObject);
+                removeThese.ForEach(go => GameObject.DestroyImmediate(go));
+            }
+
             // Generate AAC instance
+            var fx = (AnimatorController)avatar.baseAnimationLayers[4].animatorController;
+            var systemName = "AAV-" + avatar.gameObject.name;
             var aac = AacV0.Create(new AacConfiguration
             {
-                SystemName = "AAV-" + avatar.gameObject.name,
+                SystemName = systemName,
                 AvatarDescriptor = avatar,
                 AnimatorRoot = avatar.transform,
                 DefaultValueRoot = avatar.transform,
-                AssetContainer = (AnimatorController)avatar.baseAnimationLayers[4].animatorController,
+                AssetContainer = fx,
                 AssetKey = "AnimatorAsVisual",
                 DefaultsProvider = new AacDefaultsProvider(writeDefaults: aav.WriteDefaults),
             });
             aac.ClearPreviousAssets();
 
-            // main layer is unused
+            // clean previous data
+            fx.layers = fx.layers.Where(l => !l.name.StartsWith("AAV-")).ToArray();
+            fx.parameters = fx.parameters.Where(p => !p.name.StartsWith("AAV")).ToArray();
+
             aac.RemoveAllMainLayers();
             var mainFx = aac.CreateMainFxLayer();
             mainFx.WithAvatarMaskNoTransforms(); // FIXME? make masks configurable?
@@ -46,6 +61,9 @@ namespace pi.AnimatorAsVisual
             // clean up Av3 parameters
             var ptmp = new List<VRCExpressionParameters.Parameter>(avatar.expressionParameters.parameters ?? new VRCExpressionParameters.Parameter[0]);
             avatar.expressionParameters.parameters = ptmp.Where(p => !p.name.StartsWith("AAV") || usedParams.Contains(p.name)).ToArray();
+
+            // we don't actually want the mainFx layer, it is empty anyway
+            fx.layers = fx.layers.Where(l => l.name != systemName).ToArray();
 
             // generate Av3 menu
             var menu = aav.Menu ?? avatar.expressionsMenu;
@@ -61,7 +79,9 @@ namespace pi.AnimatorAsVisual
             }
             foreach (var item in aav.Root.Items)
             {
-                menu.controls.Add(item.GenerateAv3MenuEntry(aav));
+                var ctrl = item.GenerateAv3MenuEntry(aav);
+                if (ctrl != null)
+                    menu.controls.Add(ctrl);
             }
 
             EditorUtility.SetDirty(menu);
@@ -114,7 +134,7 @@ namespace pi.AnimatorAsVisual
                     name = name,
                     valueType = type,
                     saved = saved,
-                    defaultValue = @default
+                    defaultValue = @default,
                 });
                 Parameters.parameters = ptmp.ToArray();
                 Debug.Log("AAV: Added or updated Avatar Parameter: " + name);

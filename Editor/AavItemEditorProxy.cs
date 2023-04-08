@@ -16,6 +16,11 @@ namespace pi.AnimatorAsVisual
 
         void OnEnable()
         {
+            if (PrefabUtility.IsPartOfPrefabAsset(target))
+            {
+                return;
+            }
+
             var root = item.transform;
             AnimatorAsVisual data;
             while (!root.TryGetComponent<AnimatorAsVisual>(out data))

@@ -53,8 +53,8 @@ namespace pi.AnimatorAsVisual
             VRCExpressionParameters.Parameter selectedParameter = null;
             if (parameters != null)
             {
-                var allParameters = parameters.Select(x => x.name).ToArray();
-                var currentIndex = parameterName.stringValue.Length > 0 ? Array.IndexOf(allParameters, parameterName.stringValue) : 0;
+                var allParameters = parameters.Select(x => x.name).Concat(new[]{"< None >"}).ToArray();
+                var currentIndex = parameterName.stringValue == "" ? parameters.Length : (parameterName.stringValue.Length > 0 ? Array.IndexOf(allParameters, parameterName.stringValue) : 0);
                 if (currentIndex < 0)
                 {
                     EditorGUILayout.PropertyField(parameterName);
@@ -64,11 +64,16 @@ namespace pi.AnimatorAsVisual
                     var newIndex = EditorGUILayout.Popup("Parameter", currentIndex, allParameters);
                     if (newIndex >= 0)
                     {
-                        if (newIndex != currentIndex)
+                        if (newIndex >= 0 && newIndex < parameters.Length)
                         {
+                            selectedParameter = parameters[newIndex];
                             parameterName.stringValue = allParameters[newIndex];
                         }
-                        selectedParameter = parameters[newIndex];
+                        else
+                        {
+                            selectedParameter = null;
+                            parameterName.stringValue = "";
+                        }
                     }
                 }
             }
@@ -94,10 +99,6 @@ namespace pi.AnimatorAsVisual
                         EditorGUILayout.PropertyField(value);
                         break;
                 }
-            }
-            else
-            {
-                EditorGUILayout.PropertyField(value);
             }
 
             if (RawType == VRCExpressionsMenu.Control.ControlType.SubMenu)

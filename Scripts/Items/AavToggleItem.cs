@@ -14,6 +14,8 @@ namespace pi.AnimatorAsVisual
         public bool Default = false;
         public bool Saved = true;
 
+        public bool DisableMouthMovement = false;
+
         public List<AavGameObjectToggle> Toggles = new List<AavGameObjectToggle>();
         public List<AavBlendShapeToggle> BlendShapes = new List<AavBlendShapeToggle>();
         public List<AavMaterialSwapToggle> MaterialSwaps = new List<AavMaterialSwapToggle>();
@@ -28,9 +30,8 @@ namespace pi.AnimatorAsVisual
             var fx = aac.CreateSupportingFxLayer(this.ParameterName);
             fx.WithAvatarMaskNoTransforms();
 
-            // Order is important for default value, since first entry will be set as default
             AacFlState shown, hidden;
-            if (this.Default)
+            if (Default)
             {
                 shown = GenerateSimpleState(aac, fx, true);
                 hidden = GenerateSimpleState(aac, fx, false);
@@ -56,7 +57,8 @@ namespace pi.AnimatorAsVisual
             }
             foreach (var blend in this.BlendShapes)
             {
-                clip = clip.BlendShape(blend.Renderer, blend.BlendShape, enabled ? blend.StateOn : blend.StateOff);
+                var blendState = enabled ? blend.StateOn : blend.StateOff;
+                clip = clip.BlendShape(blend.Renderer, blend.BlendShape, blendState);
             }
             foreach (var mswap in this.MaterialSwaps)
             {
@@ -79,6 +81,10 @@ namespace pi.AnimatorAsVisual
                 }
             });
             var state = fx.NewState(enabled ? "Enabled" : "Disabled").WithAnimation(clip);
+            if (this.DisableMouthMovement)
+            {
+                state.TrackingSets(AacFlState.TrackingElement.Mouth, enabled ? VRC.SDKBase.VRC_AnimatorTrackingControl.TrackingType.Animation : VRC.SDKBase.VRC_AnimatorTrackingControl.TrackingType.Tracking);
+            }
             return state;
         }
 
