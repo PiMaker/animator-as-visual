@@ -1,0 +1,20 @@
+{
+  "name": "at.pimaker.animatorasvisual",
+  "displayName": "Animator as Visual",
+  "version": "1.0.0",
+	"unity" : "2019.4",
+  "description": "Provides a simple way to modify your action menu and generate toggles for your VRChat avatars.",
+  "type": "tool",
+  "author": {
+    "name": "_pi_",
+    "email": "pi+vpm@pimaker.at",
+    "url": "https://github.com/pimaker"
+  },
+  "vpmDependencies": {
+    "com.vrchat.avatars": "3.1.x",
+    "vrchat.blackstartx.gesture-manager": "3.8.x"
+  },
+  "legacyFolders": {
+    "Assets\\animator-as-visual": "b1872d20ecd4b474a85d340dfffbce70"
+  }
+}

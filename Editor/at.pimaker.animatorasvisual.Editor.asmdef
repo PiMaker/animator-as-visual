@@ -1,9 +1,14 @@
 {
-    "name": "AAV-Editor",
+    "name": "at.pimaker.animatorasvisual.Editor",
     "references": [
-        "GUID:6de432eb970d1d041acd80386b144104",
-        "GUID:184316a0752f3c74fbd758a2fb0f0d46",
-        "GUID:f5ea942962a55ed488e8a2962adce217"
+        "VRC.SDK3A",
+        "VRC.SDK3A.Editor",
+        "VRC.SDKBase",
+        "VRC.SDKBase.Editor",
+        "at.pimaker.animatorasvisual",
+        "hai.animatorascode",
+        "vrchat.blackstartx.gesture-manager",
+        "vrchat.blackstartx.gesture-manager.editor"
     ],
     "includePlatforms": [
         "Editor"

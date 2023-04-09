@@ -1,7 +1,7 @@
 {
-    "name": "AAV",
+    "name": "at.pimaker.animatorasvisual",
     "references": [
-        "GUID:21dee7794a6343ccbdcd48b92f941953"
+        "GUID:cf494b8c0bdde83459e45feb94e32bd8"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

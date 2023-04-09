@@ -6,6 +6,7 @@ using System.Text;
 using System.Linq;
 
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -16,8 +17,6 @@ using BlackStartX.GestureManager.Editor.Modules.Vrc3;
 using BlackStartX.GestureManager.Editor.Lib;
 using BlackStartX.GestureManager.Editor.Modules.Vrc3.RadialSlices;
 using BlackStartX.GestureManager.Runtime.VisualElements;
-using UnityEditor.Animations;
-using System.Diagnostics;
 
 namespace pi.AnimatorAsVisual
 {
@@ -76,6 +75,28 @@ namespace pi.AnimatorAsVisual
         public AavEditor(AnimatorAsVisual aav)
         {
             data = aav;
+        }
+
+        [MenuItem("Tools/Animator As Visual/Add AnimatorAsVisual Prefab", false, 10)]
+        public static void AddPrefabToScene()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Packages/at.pimaker.animatorasvisual/Runtime/AAV.prefab");
+            if (prefab == null)
+            {
+                Debug.LogError("Could not find AnimatorAsVisual prefab!");
+                return;
+            }
+            var go = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+            go.name = "AnimatorAsVisual";
+
+            var aav = go.GetComponent<AnimatorAsVisual>();
+            if (Selection.activeGameObject != null && Selection.activeGameObject.GetComponent<VRCAvatarDescriptor>() != null)
+            {
+                aav.Avatar = Selection.activeGameObject.GetComponent<VRCAvatarDescriptor>();
+                go.name += " - " + aav.Avatar.name;
+            }
+
+            Selection.activeGameObject = go;
         }
 
         /*
@@ -169,6 +190,8 @@ namespace pi.AnimatorAsVisual
                 root.Add(radial);
                 root.Add(new IMGUIContainer(DrawEntryEditor));
             }
+
+            root.Add(new IMGUIContainer(DrawAttribution));
 
             return root;
         }
@@ -523,7 +546,7 @@ namespace pi.AnimatorAsVisual
                 {
                     Data.Dirty = false;
 
-                    var stopwatch = new Stopwatch();
+                    var stopwatch = new System.Diagnostics.Stopwatch();
                     stopwatch.Start();
                     if (AavGenerator.Instance == null)
                         new AavGenerator(Data); // cursed
@@ -676,6 +699,70 @@ namespace pi.AnimatorAsVisual
                     raw.SetDataFromControl(item);
                 }
             }
+        }
+
+        // from: https://answers.unity.com/questions/21261/can-i-place-a-link-such-as-a-href-into-the-guilabe.html
+        private GUIStyle linkStyle;
+        private static GUIStyle MakeLinkStyle()
+        {
+            var m_LinkStyle = new GUIStyle(EditorStyles.label);
+            m_LinkStyle.wordWrap = false;
+            // Match selection color which works nicely for both light and dark skins
+            m_LinkStyle.normal.textColor = new Color(0x00 / 255f, 0x78 / 255f, 0xDA / 255f, 1f);
+            m_LinkStyle.stretchWidth = false;
+            return m_LinkStyle;
+        }
+        private bool LinkLabel(GUIContent label)
+        {
+            if (linkStyle == null)
+                linkStyle = MakeLinkStyle();
+
+            var position = GUILayoutUtility.GetRect(label, linkStyle);
+
+            Handles.BeginGUI();
+            Handles.color = linkStyle.normal.textColor;
+            Handles.DrawLine(new Vector3(position.xMin, position.yMax), new Vector3(position.xMax, position.yMax));
+            Handles.color = Color.white;
+            Handles.EndGUI();
+
+            EditorGUIUtility.AddCursorRect(position, MouseCursor.Link);
+
+            return GUI.Button(position, label, linkStyle);
+        }
+
+        private void DrawAttribution()
+        {
+            GmgLayoutHelper.Divisor(1);
+            GUILayout.Space(10);
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("thanks for using ");
+            if (LinkLabel(new GUIContent("Animator as Visual by _pi_")))
+            {
+                Application.OpenURL("https://github.com/pimaker/animator-as-visual");
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("which is based on ");
+            if (LinkLabel(new GUIContent("Animator as Code by Haï~")))
+            {
+                Application.OpenURL("https://github.com/hai-vr/av3-animator-as-code");
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("as well as ");
+            if (LinkLabel(new GUIContent("GestureManager by BlackStartx")))
+            {
+                Application.OpenURL("https://github.com/BlackStartx/VRC-Gesture-Manager");
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(10);
         }
     }
 }
