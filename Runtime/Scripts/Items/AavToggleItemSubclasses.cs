@@ -100,6 +100,29 @@ namespace pi.AnimatorAsVisual
                 this.CurPropertyList = parameterNames;
             }
         }
+
+        [Serializable]
+        public enum AavToggleDrivesWhen : int
+        {
+            Always,
+            OnActivate,
+            OnDeactivate,
+        }
+
+        [Serializable]
+        public enum AavToggleDrivesTo : int
+        {
+            TurnOn,
+            TurnOff,
+        }
+
+        [Serializable]
+        public class AavToggleDrives
+        {
+            public AavToggleDrivesWhen When;
+            public AavToggleDrivesTo To;
+            public AavToggleItem Item;
+        }
     }
 }
 #endif

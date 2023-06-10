@@ -23,8 +23,6 @@ namespace pi.AnimatorAsVisual
     [CustomEditor(typeof(AnimatorAsVisual))]
     public class AavEditor : Editor
     {
-        private const string GeneratedFolder = "Generated-AAV";
-
         private const float Size = 300.0f;
         private const float InnerSize = Size / 3;
         private const float Clamp = Size / 3;
@@ -36,7 +34,7 @@ namespace pi.AnimatorAsVisual
             get => data ?? target as AnimatorAsVisual;
             set => data = value;
         }
-        public override bool RequiresConstantRepaint() => true; // FIXME? Performance?
+        public override bool RequiresConstantRepaint() => false;
 
         private bool modified = false;
         private bool expertFoldoutOpen = false;
@@ -227,9 +225,9 @@ namespace pi.AnimatorAsVisual
             if (choice != -1 && buttons != null) buttons[choice].OnClickEnd();
         }
 
-        private void SetButtons(RadialSliceButton[] buttons)
+        private void SetButtons((RadialSliceButton, AavMenuItem)[] buttons)
         {
-            this.buttons = buttons;
+            this.buttons = buttons.Select(x => x.Item1).ToArray();
 
             borderHolder.Clear();
             sliceHolder.Clear();
@@ -242,7 +240,8 @@ namespace pi.AnimatorAsVisual
             var rStep = Mathf.PI * 2 / this.buttons.Length;
             var rCurrent = Mathf.PI;
 
-            foreach (var item in this.buttons)
+            var itemNr = 0;
+            foreach (var (item, dataItem) in buttons)
             {
                 item.Create();
                 item.Progress = progress;
@@ -260,11 +259,17 @@ namespace pi.AnimatorAsVisual
                     item.IdleCenterColor = Color.blue;
                     item.SelectedCenterColor = Color.blue;
                 }
+                else if (dataItem != null && (!dataItem.isActiveAndEnabled || !dataItem.gameObject.activeInHierarchy))
+                {
+                    item.IdleCenterColor = Color.gray;
+                    item.SelectedCenterColor = Color.gray;
+                }
 
                 borderHolder.Add(border);
                 dataHolder.Add(item.DataHolder);
                 current += step;
                 rCurrent -= rStep;
+                itemNr++;
             }
         }
 
@@ -277,15 +282,15 @@ namespace pi.AnimatorAsVisual
             if (PrefabUtility.IsPartOfPrefabAsset(Data.gameObject)) return;
             if (Data.CurrentlySelected >= CurrentMenu.Items.Count()) Data.CurrentlySelected = -1;
 
-            var list = new List<RadialSliceButton>();
-            list.Add(new RadialSliceButton(HandleAddControl, "Add Control", iconPlus));
+            var list = new List<(RadialSliceButton, AavMenuItem)>();
+            list.Add((new RadialSliceButton(HandleAddControl, "Add Control", iconPlus), null));
 
             var i = 0;
             foreach (var item in CurrentMenu.Items)
             {
                 var isSubmenu = item is AavSubmenuItem;
                 var label = (isSubmenu ? "[M] " : "") + item.AavName;
-                list.Add(new RadialSliceButton(HandleEntrySelected(i++), label, item.Icon));
+                list.Add((new RadialSliceButton(HandleEntrySelected(i++), label, item.Icon), item));
             }
 
             SetButtons(list.ToArray());
@@ -487,7 +492,7 @@ namespace pi.AnimatorAsVisual
             var menuProp = dataSer.FindProperty("Menu");
             EditorGUILayout.PropertyField(menuProp);
 
-            if (avatarProp.objectReferenceValue is VRCAvatarDescriptor avatar && avatar.baseAnimationLayers != null && avatar.baseAnimationLayers.Length >= 5)
+            if (avatarProp.objectReferenceValue is VRCAvatarDescriptor avatar && avatar.baseAnimationLayers != null && avatar.baseAnimationLayers.Length >= 5 && avatar.baseAnimationLayers[4].animatorController != null)
             {
                 GUI.enabled = false;
                 EditorGUILayout.ObjectField("FX Animator", (AnimatorController)avatar.baseAnimationLayers[4].animatorController, typeof(AnimatorController), false);
@@ -548,13 +553,12 @@ namespace pi.AnimatorAsVisual
 
                     var stopwatch = new System.Diagnostics.Stopwatch();
                     stopwatch.Start();
-                    if (AavGenerator.Instance == null)
-                        new AavGenerator(Data); // cursed
+                    var gen = new AavGenerator(Data);
                     try
                     {
-                        AavGenerator.Instance.Generate();
+                        gen.Generate();
                         stopwatch.Stop();
-                        lastGeneratedStatus = $"Synchronized {AavGenerator.Instance.StatsLayers} layers + {AavGenerator.Instance.StatsBlendTreeMotions} direct blend tree motions using {AavGenerator.Instance.StatsUsedParameters} parameters ({AavGenerator.Instance.StatsUpdatedUsedParameters} modified) in {stopwatch.ElapsedMilliseconds}ms";
+                        lastGeneratedStatus = $"Synchronized {gen.StatsLayers} layers + {gen.StatsBlendTreeMotions} direct blend tree motions using {gen.StatsUsedParameters} parameters ({gen.StatsUpdatedUsedParameters} modified) in {stopwatch.ElapsedMilliseconds}ms";
                         lastGeneratedTime = DateTime.UtcNow;
                     }
                     catch (Exception e)
@@ -577,14 +581,6 @@ namespace pi.AnimatorAsVisual
             GUILayout.Space(16);
             GmgLayoutHelper.Divisor(1);
             GUILayout.Space(10);
-        }
-
-        private void EnsureGeneratedFolderExists()
-        {
-            if (!AssetDatabase.IsValidFolder("Assets/" + GeneratedFolder))
-            {
-                AssetDatabase.CreateFolder("Assets", GeneratedFolder);
-            }
         }
 
         private bool HandleAvatarErrors()
@@ -616,15 +612,15 @@ namespace pi.AnimatorAsVisual
                         Data.Dirty = true;
                     }
                 }
-                else if (Data.Avatar.baseAnimationLayers[4].isDefault || Data.Avatar.baseAnimationLayers[4].animatorController == null)
+                else if (Data.Avatar.baseAnimationLayers.Length < 5 || Data.Avatar.baseAnimationLayers[4].isDefault || Data.Avatar.baseAnimationLayers[4].animatorController == null)
                 {
                     error = true;
                     EditorGUILayout.HelpBox("No FX controller available! Please create a new 'Animator Controller' and assign it as 'FX' on your avatar descriptor.", MessageType.Error);
                     if (GUILayout.Button("Auto Fix"))
                     {
-                        EnsureGeneratedFolderExists();
+                        AavGenerator.EnsureGeneratedFolderExists();
                         var fx = UnityEditor.Animations.AnimatorController.CreateAnimatorControllerAtPath(
-                            AssetDatabase.GenerateUniqueAssetPath($"Assets/{GeneratedFolder}/FX-{Data.Avatar.gameObject.name}.controller")
+                            AssetDatabase.GenerateUniqueAssetPath($"Assets/{AavGenerator.GeneratedFolder}/FX-{Data.Avatar.gameObject.name}.controller")
                         );
                         Data.Avatar.baseAnimationLayers[4].animatorController = fx;
                         Data.Avatar.baseAnimationLayers[4].isDefault = false;
@@ -653,9 +649,9 @@ namespace pi.AnimatorAsVisual
                         EditorGUILayout.HelpBox("No Expressions Menu assigned! Please create a new 'Expressions Menu' and assign it to your avatar descriptor.", MessageType.Error);
                         if (GUILayout.Button("Auto Fix"))
                         {
-                            EnsureGeneratedFolderExists();
+                            AavGenerator.EnsureGeneratedFolderExists();
                             var menu = ScriptableObject.CreateInstance<VRCExpressionsMenu>();
-                            AssetDatabase.CreateAsset(menu, AssetDatabase.GenerateUniqueAssetPath($"Assets/{GeneratedFolder}/ExpressionsMenu-{Data.Avatar.gameObject.name}.asset"));
+                            AssetDatabase.CreateAsset(menu, AssetDatabase.GenerateUniqueAssetPath($"Assets/{AavGenerator.GeneratedFolder}/ExpressionsMenu-{Data.Avatar.gameObject.name}.asset"));
                             Data.Avatar.expressionsMenu = menu;
                             EditorUtility.SetDirty(Data.Avatar);
                             Data.Dirty = true;
@@ -667,9 +663,9 @@ namespace pi.AnimatorAsVisual
                         EditorGUILayout.HelpBox("No Expression Parameters assigned! Please create a new 'Expression Parameter' object and assign it to your avatar descriptor.", MessageType.Error);
                         if (GUILayout.Button("Auto Fix"))
                         {
-                            EnsureGeneratedFolderExists();
+                            AavGenerator.EnsureGeneratedFolderExists();
                             var @params = ScriptableObject.CreateInstance<VRCExpressionParameters>();
-                            AssetDatabase.CreateAsset(@params, AssetDatabase.GenerateUniqueAssetPath($"Assets/{GeneratedFolder}/ExpressionParameters-{Data.Avatar.gameObject.name}.asset"));
+                            AssetDatabase.CreateAsset(@params, AssetDatabase.GenerateUniqueAssetPath($"Assets/{AavGenerator.GeneratedFolder}/ExpressionParameters-{Data.Avatar.gameObject.name}.asset"));
                             Data.Avatar.expressionParameters = @params;
                             EditorUtility.SetDirty(Data.Avatar);
                             Data.Dirty = true;

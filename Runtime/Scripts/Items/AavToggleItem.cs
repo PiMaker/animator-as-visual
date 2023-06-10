@@ -20,8 +20,12 @@ namespace pi.AnimatorAsVisual
 
         public List<AavGameObjectToggle> Toggles = new List<AavGameObjectToggle>();
         public List<AavBlendShapeToggle> BlendShapes = new List<AavBlendShapeToggle>();
-        public List<AavMaterialSwapToggle> MaterialSwaps = new List<AavMaterialSwapToggle>();
+        //public List<AavMaterialSwapToggle> MaterialSwaps = new List<AavMaterialSwapToggle>();
         public List<AavMaterialParamToggle> MaterialParams = new List<AavMaterialParamToggle>();
+
+        public List<AavToggleDrives> Drives = new List<AavToggleDrives>();
+
+        public bool CanUseBlendTree => !this.DisableMouthMovement && Mathf.Approximately(TransitionDuration, 0.0f) && (Drives == null || Drives.Count == 0);
 
         /*
             Animator Generation Logic for all kinds of actions (List<T>s above)
@@ -29,9 +33,8 @@ namespace pi.AnimatorAsVisual
         public override void GenerateAnimator(AavGenerator gen)
         {
             var aac = gen.AAC;
-            aac.RemoveAllSupportingLayers(this.ParameterName);
 
-            if (this.DisableMouthMovement || TransitionDuration > 0.0f)
+            if (!CanUseBlendTree)
             {
                 // have to use legacy method with separate layer
                 var fx = aac.CreateSupportingFxLayer(this.ParameterName);
@@ -61,6 +64,35 @@ namespace pi.AnimatorAsVisual
                     shown.TransitionsTo(hidden).WithTransitionDurationSeconds(TransitionDuration).When(param.IsFalse());
                     hidden.TransitionsTo(shown).WithTransitionDurationSeconds(TransitionDuration).When(param.IsTrue());
                 }
+
+                if (Drives != null && Drives.Count > 0)
+                {
+                    var activatorStates = new List<AacFlState>();
+                    foreach (var drive in Drives)
+                    {
+                        activatorStates.Clear();
+                        switch (drive.When)
+                        {
+                            case AavToggleDrivesWhen.Always:
+                                activatorStates.Add(shown);
+                                activatorStates.Add(hidden);
+                                break;
+                            case AavToggleDrivesWhen.OnActivate:
+                                activatorStates.Add(shown);
+                                break;
+                            case AavToggleDrivesWhen.OnDeactivate:
+                                activatorStates.Add(hidden);
+                                break;
+                        }
+                        foreach (var act in activatorStates)
+                        {
+                            if (drive.Item.CanUseBlendTree)
+                                act.Drives(fx.FloatParameter("AAV" + drive.Item.ParameterName), drive.To == AavToggleDrivesTo.TurnOn ? 1.0f : 0.0f);
+                            else
+                                act.Drives(fx.BoolParameter("AAV" + drive.Item.ParameterName), drive.To == AavToggleDrivesTo.TurnOn);
+                        }
+                    }
+                }
             }
             else
             {
@@ -81,10 +113,10 @@ namespace pi.AnimatorAsVisual
                 var blendState = enabled ? blend.StateOn : blend.StateOff;
                 clip = clip.BlendShape(blend.Renderer, blend.BlendShape, blendState);
             }
-            foreach (var mswap in this.MaterialSwaps)
-            {
-                clip = clip.SwappingMaterial(mswap.Renderer, mswap.Slot, enabled ? mswap.MaterialOn : mswap.MaterialOff);
-            }
+            // foreach (var mswap in this.MaterialSwaps)
+            // {
+            //     clip = clip.SwappingMaterial(mswap.Renderer, mswap.Slot, enabled ? mswap.MaterialOn : mswap.MaterialOff);
+            // }
             clip.Animating(edit =>
             {
                 foreach (var mparam in this.MaterialParams)

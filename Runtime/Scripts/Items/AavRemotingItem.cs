@@ -97,7 +97,6 @@ namespace pi.AnimatorAsVisual
             receiver.receiverType = VRC.Dynamics.ContactReceiver.ReceiverType.Constant;
             receiver.enabled = true;
 
-            aac.RemoveAllSupportingLayers(this.ParameterName);
             var fx = aac.CreateSupportingFxLayer(this.ParameterName);
             fx.WithAvatarMaskNoTransforms();
 

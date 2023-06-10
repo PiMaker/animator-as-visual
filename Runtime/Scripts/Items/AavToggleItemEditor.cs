@@ -14,6 +14,7 @@ namespace pi.AnimatorAsVisual
         private ReorderableList RLToggles;
         private ReorderableList RLBlendShapes;
         private ReorderableList RLMaterialSwaps;
+        private ReorderableList RLDrives;
         private ReorderableList RLMaterialParams;
 
         private bool modified;
@@ -36,7 +37,7 @@ namespace pi.AnimatorAsVisual
                     this.TransitionDuration), ref modified);
 
             // Handle ReorderableLists
-            if (RLToggles == null || RLBlendShapes == null || RLMaterialSwaps == null || RLMaterialParams == null)
+            if (RLToggles == null || RLBlendShapes == null || /* RLMaterialSwaps == null || */ RLMaterialParams == null || RLDrives == null)
             {
                 /*
                     GameObject Toggle
@@ -269,18 +270,46 @@ namespace pi.AnimatorAsVisual
                 };
 
                 /*
+                    Drives
+                */
+                RLDrives = new ReorderableList(this.Drives, typeof(AavToggleDrives), true, false, true, true);
+                RLDrives.elementHeight *= 2;
+                RLDrives.elementHeight += 2;
+                RLDrives.drawElementCallback += (Rect rect, int index, bool isActive, bool isFocused) =>
+                {
+                    var drive = this.Drives[index];
+                    drive.Item = drive.Item.UpdateWith(
+                        () => (AavToggleItem)EditorGUI.ObjectField(
+                            new Rect(rect.x, rect.y + 1, rect.width - 110, EditorGUIUtility.singleLineHeight),
+                            drive.Item, typeof(AavToggleItem), true),
+                        ref modified);
+                    EditorGUI.LabelField(new Rect(rect.x + rect.width - 100, rect.y + 1, 100, EditorGUIUtility.singleLineHeight), "is driven to");
+                    drive.To = drive.To.UpdateWith(
+                        () => EditorGUI.Toggle(
+                            new Rect(rect.x + rect.width - 20, rect.y + 1, 20, EditorGUIUtility.singleLineHeight),
+                            drive.To == AavToggleDrivesTo.TurnOn) ? AavToggleDrivesTo.TurnOn : AavToggleDrivesTo.TurnOff,
+                        ref modified);
+                    EditorGUI.LabelField(new Rect(rect.x, rect.y + 4 + EditorGUIUtility.singleLineHeight, 100, EditorGUIUtility.singleLineHeight), "when");
+                    drive.When = drive.When.UpdateWith(
+                        () => (AavToggleDrivesWhen)EditorGUI.EnumPopup(
+                            new Rect(rect.x + 40, rect.y + 4 + EditorGUIUtility.singleLineHeight, rect.width - 100, EditorGUIUtility.singleLineHeight),
+                            drive.When),
+                        ref modified);
+                };
+
+                /*
                     Material Swaps
                 */
 
                 // WIP
 
-                RLMaterialSwaps = new ReorderableList(this.MaterialSwaps, typeof(AavMaterialSwapToggle), true, false, true, true);
+                /*RLMaterialSwaps = new ReorderableList(this.MaterialSwaps, typeof(AavMaterialSwapToggle), true, false, true, true);
                 RLMaterialSwaps.elementHeight *= 2;
                 RLMaterialSwaps.elementHeight += 2;
                 RLMaterialSwaps.drawElementCallback += (Rect rect, int index, bool isActive, bool isFocused) =>
                 {
                     EditorGUI.LabelField(rect, "// Work in Progress!");
-                };
+                };*/
             }
 
             var headerStyle = AavHelpers.HeaderStyle;
@@ -292,6 +321,8 @@ namespace pi.AnimatorAsVisual
             RLBlendShapes.DoLayoutList();
             GUILayout.Label("Material Parameters", headerStyle);
             RLMaterialParams.DoLayoutList();
+            GUILayout.Label("Drives", headerStyle);
+            RLDrives.DoLayoutList();
             //GUILayout.Label("Material Swaps", headerStyle);
             //RLMaterialSwaps.DoLayoutList();
 

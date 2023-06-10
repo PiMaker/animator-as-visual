@@ -103,7 +103,6 @@ namespace pi.AnimatorAsVisual
         {
             var aac = gen.AAC;
 
-            aac.RemoveAllSupportingLayers(this.ParameterName);
             var fx = aac.CreateSupportingFxLayer(this.ParameterName);
             fx.WithAvatarMaskNoTransforms();
 

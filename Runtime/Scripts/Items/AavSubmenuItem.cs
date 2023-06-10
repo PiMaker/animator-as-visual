@@ -67,7 +67,8 @@ namespace pi.AnimatorAsVisual
             AssetDatabase.AddObjectToAsset(subMenu, AssetDatabase.GetAssetPath(aav.Avatar.expressionsMenu));
             foreach (var item in this.Items)
             {
-                subMenu.controls.Add(item.GenerateAv3MenuEntry(aav));
+                if (item.isActiveAndEnabled && item.gameObject.activeInHierarchy)
+                    subMenu.controls.Add(item.GenerateAv3MenuEntry(aav));
             }
 
             return new VRCExpressionsMenu.Control()
