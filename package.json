@@ -11,7 +11,7 @@
     "url": "https://github.com/pimaker"
   },
   "vpmDependencies": {
-    "com.vrchat.avatars": "3.1.x",
+    "com.vrchat.avatars": "3.x",
     "vrchat.blackstartx.gesture-manager": "3.8.x"
   },
   "legacyFolders": {
