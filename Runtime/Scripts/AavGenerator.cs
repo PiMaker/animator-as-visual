@@ -7,7 +7,7 @@ using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
 
-using AnimatorAsCode.V0;
+using AnimatorAsCode.Pi.V0;
 using VRC.SDK3.Avatars.ScriptableObjects;
 
 namespace pi.AnimatorAsVisual

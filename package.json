@@ -12,7 +12,8 @@
   },
   "vpmDependencies": {
     "com.vrchat.avatars": "3.x",
-    "vrchat.blackstartx.gesture-manager": "3.8.x"
+    "vrchat.blackstartx.gesture-manager": "3.8.x",
+    "hai.animatorascode.pi": "1.x"
   },
   "legacyFolders": {
     "Assets\\animator-as-visual": "b1872d20ecd4b474a85d340dfffbce70"

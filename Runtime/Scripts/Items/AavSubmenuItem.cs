@@ -7,7 +7,6 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-using AnimatorAsCode.V0;
 using VRC.SDK3.Avatars.ScriptableObjects;
 
 namespace pi.AnimatorAsVisual
