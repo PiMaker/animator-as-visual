@@ -34,7 +34,7 @@ namespace pi.AnimatorAsVisual
             get => data ?? target as AnimatorAsVisual;
             set => data = value;
         }
-        public override bool RequiresConstantRepaint() => false;
+        public override bool RequiresConstantRepaint() => true; // this is still necessary, sometimes...
 
         private bool modified = false;
         private bool expertFoldoutOpen = false;
@@ -551,14 +551,11 @@ namespace pi.AnimatorAsVisual
                 {
                     Data.Dirty = false;
 
-                    var stopwatch = new System.Diagnostics.Stopwatch();
-                    stopwatch.Start();
                     var gen = new AavGenerator(Data);
                     try
                     {
                         gen.Generate();
-                        stopwatch.Stop();
-                        lastGeneratedStatus = $"Synchronized {gen.StatsLayers} layers + {gen.StatsBlendTreeMotions} direct blend tree motions using {gen.StatsUsedParameters} parameters ({gen.StatsUpdatedUsedParameters} modified) in {stopwatch.ElapsedMilliseconds}ms";
+                        lastGeneratedStatus = gen.LastStatsSummary;
                         lastGeneratedTime = DateTime.UtcNow;
                     }
                     catch (Exception e)

@@ -28,6 +28,8 @@ namespace pi.AnimatorAsVisual
         public int StatsUpdatedUsedParameters { get; private set; }
         public int StatsLayers { get; private set; }
 
+        public string LastStatsSummary { get; private set; }
+
         public AavGenerator(AnimatorAsVisual aav)
         {
             this.AAV = aav;
@@ -35,6 +37,9 @@ namespace pi.AnimatorAsVisual
 
         public void Generate()
         {
+            var stopwatch = new System.Diagnostics.Stopwatch();
+            stopwatch.Start();
+
             var avatar = AAV.Avatar;
             usedParams.Clear();
             blendTreeMotions.Clear();
@@ -166,7 +171,10 @@ namespace pi.AnimatorAsVisual
             EditorUtility.SetDirty(avatar.expressionsMenu);
             EditorUtility.SetDirty(avatar.expressionParameters);
 
-            Debug.Log("AAV: Synchronized successfully!");
+            stopwatch.Stop();
+
+            LastStatsSummary = $"Synchronized {StatsLayers} layers + {StatsBlendTreeMotions} direct blend tree motions using {StatsUsedParameters} parameters ({StatsUpdatedUsedParameters} modified) in {stopwatch.ElapsedMilliseconds}ms";
+            Debug.Log($"AAV: {LastStatsSummary}");
         }
 
         /*
