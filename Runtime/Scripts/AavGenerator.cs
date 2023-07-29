@@ -30,12 +30,30 @@ namespace pi.AnimatorAsVisual
 
         public string LastStatsSummary { get; private set; }
 
+        private static readonly HashSet<IAavGeneratorHook> hooks = new HashSet<IAavGeneratorHook>();
+        public static void RegisterHook(IAavGeneratorHook hook) => hooks.Add(hook);
+
         public AavGenerator(AnimatorAsVisual aav)
         {
             this.AAV = aav;
         }
 
         public void Generate()
+        {
+            AssetDatabase.DisallowAutoRefresh();
+            AssetDatabase.StartAssetEditing();
+            try
+            {
+                GenerateInternal();
+            }
+            finally
+            {
+                AssetDatabase.StopAssetEditing();
+                AssetDatabase.AllowAutoRefresh();
+            }
+        }
+
+        private void GenerateInternal()
         {
             var stopwatch = new System.Diagnostics.Stopwatch();
             stopwatch.Start();
@@ -146,6 +164,10 @@ namespace pi.AnimatorAsVisual
 
             StatsLayers = fx.layers.Count(l => l.name.StartsWith("AAV") || l.name.StartsWith("RemoteAAV"));
 
+            // call custom generation hooks
+            foreach (var hook in hooks)
+                hook.Apply(avatar.gameObject, this);
+
             // generate Av3 menu
             var menu = AAV.Menu ?? avatar.expressionsMenu;
             menu.controls.Clear();
@@ -210,7 +232,7 @@ namespace pi.AnimatorAsVisual
             return param;
         }
 
-        private AacFlParameter MakeAv3ParameterInternal(AacFlLayer fx, string name, bool saved, VRCExpressionParameters.ValueType type, float @default, bool forceFloatFx = false, bool prefix = true)
+        public AacFlParameter MakeAv3ParameterInternal(AacFlLayer fx, string name, bool saved, VRCExpressionParameters.ValueType type, float @default, bool forceFloatFx = false, bool prefix = true)
         {
             if (prefix)
                 name = "AAV" + name;
