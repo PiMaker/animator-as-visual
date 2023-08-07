@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using UnityEngine;
 
 namespace pi.AnimatorAsVisual
@@ -7,3 +8,4 @@ namespace pi.AnimatorAsVisual
         void Apply(GameObject avatar, AavGenerator generator);
     }
 }
+#endif

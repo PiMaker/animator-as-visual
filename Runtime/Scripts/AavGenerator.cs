@@ -12,7 +12,7 @@ using VRC.SDK3.Avatars.ScriptableObjects;
 
 namespace pi.AnimatorAsVisual
 {
-    public class AavGenerator
+    public partial class AavGenerator
     {
         public const string GeneratedFolder = "Generated-AAV";
 
@@ -29,6 +29,7 @@ namespace pi.AnimatorAsVisual
         public int StatsLayers { get; private set; }
 
         public string LastStatsSummary { get; private set; }
+        public string RemotingString { get; private set; }
 
         private static readonly HashSet<IAavGeneratorHook> hooks = new HashSet<IAavGeneratorHook>();
         public static void RegisterHook(IAavGeneratorHook hook) => hooks.Add(hook);
@@ -64,15 +65,7 @@ namespace pi.AnimatorAsVisual
             StatsUpdatedUsedParameters = 0;
             StatsLayers = 0;
 
-            // TODO: Move somewhere more generic
-            var remotingRoot = AAV.Avatar.transform.Find("AAV-Remoting-Root")?.gameObject;
-            if (remotingRoot != null)
-            {
-                var removeThese = new List<GameObject>();
-                for (int i = 0; i < remotingRoot.transform.childCount; i++)
-                    removeThese.Add(remotingRoot.transform.GetChild(i).gameObject);
-                removeThese.ForEach(go => GameObject.DestroyImmediate(go));
-            }
+            RemotingString = null;
 
             var fx = (AnimatorController)avatar.baseAnimationLayers[4].animatorController;
 
@@ -122,6 +115,15 @@ namespace pi.AnimatorAsVisual
                 if (item.isActiveAndEnabled && item.gameObject.activeInHierarchy)
                     item.GenerateAnimator(this);
             }
+
+            // remoting
+            remotingRoot = null;
+            GenerateRemotingReceivers();
+            GenerateRemotingSenders(MainFX);
+
+            var data = GenerateRemotingData(AAV.Root);
+            if (data.Name != null && data.Children != null && data.Children.Length > 0)
+                RemotingString = JsonUtility.ToJson(data);
 
             // clean up Av3 parameters
             var ptmp = new List<VRCExpressionParameters.Parameter>(avatar.expressionParameters.parameters ?? new VRCExpressionParameters.Parameter[0]);

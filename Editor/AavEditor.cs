@@ -41,6 +41,7 @@ namespace pi.AnimatorAsVisual
         private bool importFoldoutOpen = false;
 
         private string lastGeneratedStatus = null;
+        private string lastGeneratedRemotingString = null;
         private DateTime lastGeneratedTime = DateTime.MinValue;
 
         private AavSubmenuItem _currentMenu;
@@ -556,11 +557,13 @@ namespace pi.AnimatorAsVisual
                     {
                         gen.Generate();
                         lastGeneratedStatus = gen.LastStatsSummary;
+                        lastGeneratedRemotingString = gen.RemotingString;
                         lastGeneratedTime = DateTime.UtcNow;
                     }
                     catch (Exception e)
                     {
                         lastGeneratedStatus = $"ERROR: {e.Message}";
+                        lastGeneratedRemotingString = null;
                         lastGeneratedTime = DateTime.UtcNow;
                     }
                 }
@@ -573,6 +576,23 @@ namespace pi.AnimatorAsVisual
                 GUI.color = lastGeneratedStatus.StartsWith("ERROR") ? Color.red : Color.green;
                 GUILayout.Label(lastGeneratedStatus);
                 GUI.color = resetCol;
+            }
+
+            if (!string.IsNullOrWhiteSpace(lastGeneratedRemotingString))
+            {
+                GUILayout.Space(4);
+                GUILayout.Label("Remoting Data:");
+                EditorGUILayout.HelpBox(lastGeneratedRemotingString, MessageType.None);
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("Copy to Clipboard"))
+                {
+                    EditorGUIUtility.systemCopyBuffer = lastGeneratedRemotingString;
+                }
+                if (GUILayout.Button("Hide"))
+                {
+                    lastGeneratedRemotingString = null;
+                }
+                EditorGUILayout.EndHorizontal();
             }
 
             GUILayout.Space(16);

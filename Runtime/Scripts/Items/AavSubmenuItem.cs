@@ -24,8 +24,6 @@ namespace pi.AnimatorAsVisual
             })
             .Where(x => x != null);
 
-        [SerializeField] private bool ExcludeFromMenu = false;
-
         public IEnumerable<AavMenuItem> EnumerateRecursive()
         {
             foreach (var item in this.Items)
@@ -52,15 +50,11 @@ namespace pi.AnimatorAsVisual
         // entering a submenu has special handling code in AavEditor.
         public override bool DrawEditor(AnimatorAsVisual aav)
         {
-            var modified = false;
-            this.ExcludeFromMenu = this.ExcludeFromMenu.UpdateWith(() => EditorGUILayout.Toggle("Hide in Game Menu", this.ExcludeFromMenu), ref modified);
-            return modified;
+            return false;
         }
 
         public override VRCExpressionsMenu.Control GenerateAv3MenuEntry(AnimatorAsVisual aav)
         {
-            if (this.ExcludeFromMenu) return null;
-
             var subMenu = ScriptableObject.CreateInstance<VRCExpressionsMenu>();
             subMenu.name = this.AavName;
             AssetDatabase.AddObjectToAsset(subMenu, AssetDatabase.GetAssetPath(aav.Avatar.expressionsMenu));

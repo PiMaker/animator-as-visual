@@ -17,6 +17,7 @@ namespace pi.AnimatorAsVisual
 
         public bool DisableMouthMovement = false;
         public float TransitionDuration = 0.0f;
+        public bool AllowRemoteToggle = false;
 
         public List<AavGameObjectToggle> Toggles = new List<AavGameObjectToggle>();
         public List<AavBlendShapeToggle> BlendShapes = new List<AavBlendShapeToggle>();

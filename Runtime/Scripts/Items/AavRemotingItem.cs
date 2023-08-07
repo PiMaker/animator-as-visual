@@ -2,34 +2,99 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using UnityEditor;
 using UnityEngine;
 using VRC.SDK3.Avatars.ScriptableObjects;
-using VRC.SDK3.Dynamics.Contact.Components;
 
 namespace pi.AnimatorAsVisual
 {
     [Serializable]
-    [AavMenu("Remoting Toggle")]
+    [AavMenu("Remote Control")]
     public class AavRemotingItem : AavMenuItem
     {
-        public string TargetParameterName;
+        public RemotingDataNode RemotingData;
+        private string editorRemotingDataString;
+        private readonly static StringBuilder tmpBuilder = new StringBuilder();
+
+        [Serializable]
+        public struct RemotingDataNode
+        {
+            public string Name;
+            public bool IsFolder;
+            public string ParameterName;
+            public RemotingDataNode[] Children;
+        }
+
+        public IEnumerable<string> ContactSenderTags
+        {
+            get
+            {
+                if (RemotingData.Name == null || RemotingData.Children == null)
+                    return Enumerable.Empty<string>();
+
+                IEnumerable<string> GetRecursive(RemotingDataNode node)
+                {
+                    if (node.Name == null || node.Children == null)
+                        yield break;
+
+                    if (node.IsFolder)
+                    {
+                        foreach (var child in node.Children)
+                        {
+                            foreach (var tag in GetRecursive(child))
+                                yield return tag;
+                        }
+                    }
+                    else
+                    {
+                        yield return "AAV-Contact-" + node.ParameterName;
+                    }
+                }
+
+                return GetRecursive(RemotingData);
+            }
+        }
 
         public override bool DrawEditor(AnimatorAsVisual aav)
         {
             var my = new SerializedObject(this);
             my.Update();
 
-            var parameterName = my.FindProperty(nameof(TargetParameterName));
-            EditorGUILayout.PropertyField(parameterName);
+            editorRemotingDataString = EditorGUILayout.TextField("Remoting Data", editorRemotingDataString);
+            if (GUILayout.Button("Load Remoting Data"))
+                RemotingData = JsonUtility.FromJson<RemotingDataNode>(editorRemotingDataString);
 
             EditorGUILayout.Separator();
-            EditorGUILayout.LabelField("Set from:");
+            EditorGUILayout.LabelField($"Controls avatar: {(RemotingData.Name == null ? "<Not Loaded>" : RemotingData.Name)}");
 
-            var obj = EditorGUILayout.ObjectField((UnityEngine.Object)null, typeof(AavToggleItem), true);
-            if (obj != null && obj is AavToggleItem fromItem)
+            void ShowRecursive(StringBuilder builder, RemotingDataNode node, int indent = 0)
             {
-                parameterName.stringValue = "AAV" + fromItem.ParameterName;
+                if (node.Name == null || node.Children == null) return;
+
+                builder.Append(' ', indent * 2);
+                builder.Append("- ");
+                builder.Append(node.Name);
+                if (!node.IsFolder)
+                {
+                    builder.Append(" (");
+                    builder.Append(node.ParameterName);
+                    builder.AppendLine(")");
+                }
+                else
+                {
+                    foreach (var child in node.Children)
+                    {
+                        ShowRecursive(builder, child, indent + 1);
+                    }
+                }
+            }
+            if (RemotingData.Name != null)
+            {
+                tmpBuilder.Clear();
+                ShowRecursive(tmpBuilder, RemotingData);
+                EditorGUILayout.HelpBox(tmpBuilder.ToString(), MessageType.None);
             }
 
             my.ApplyModifiedProperties();
@@ -39,141 +104,48 @@ namespace pi.AnimatorAsVisual
 
         public override void GenerateAnimator(AavGenerator gen)
         {
-            var aac = gen.AAC;
-            var aav = gen.AAV;
-
-            if (string.IsNullOrEmpty(this.TargetParameterName))
-            {
-                Debug.LogError("Remoting Item without target parameter found: " + this.AavName);
-                return;            
-            }
-
-            var root = aav.Avatar.transform.Find("AAV-Remoting-Root")?.gameObject;
-            if (root == null)
-            {
-                root = new GameObject("AAV-Remoting-Root");
-                root.transform.SetParent(aav.Avatar.transform);
-            }
-
-            root.transform.position = aav.Avatar.transform.position;
-
-            var element = root.transform.Find(this.TargetParameterName)?.gameObject;
-            if (element == null)
-            {
-                element = new GameObject(this.TargetParameterName);
-                element.transform.SetParent(root.transform);
-            }
-
-            element.transform.localPosition = Vector3.zero;
-
-            var sender = element.GetComponent<VRCContactSender>();
-            if (sender == null)
-            {
-                sender = element.AddComponent<VRCContactSender>();
-            }
-            
-            var receiver = element.GetComponent<VRCContactReceiver>();
-            if (receiver == null)
-            {
-                receiver = element.AddComponent<VRCContactReceiver>();
-            }
-
-            sender.collisionTags = new List<string>() { this.TargetParameterName };
-            sender.shapeType = VRC.Dynamics.ContactBase.ShapeType.Sphere;
-            sender.radius = 1000000;
-            sender.enabled = false;
-
-            receiver.collisionTags = new List<string>() { this.TargetParameterName };
-            receiver.shapeType = VRC.Dynamics.ContactBase.ShapeType.Sphere;
-            receiver.radius = 0.1f;
-            receiver.allowOthers = true;
-            receiver.allowSelf = false;
-            receiver.localOnly = true;
-            receiver.collisionValue = 1.0f;
-            receiver.paramValue = 1.0f;
-            receiver.parameter = "RemoteAAV-RCV-" + this.TargetParameterName;
-            receiver.receiverType = VRC.Dynamics.ContactReceiver.ReceiverType.Constant;
-            receiver.enabled = true;
-
-            var fx = aac.CreateSupportingFxLayer(this.ParameterName);
-            fx.WithAvatarMaskNoTransforms();
-
-            var triggerParam = gen.MakeAv3Parameter(fx, "RemoteAAV-" + this.TargetParameterName, false, false);
-            var rcvParam = fx.BoolParameter("RemoteAAV-RCV-" + this.TargetParameterName);
-            var targetParam = fx.BoolParameter(this.TargetParameterName);
-
-            var waitingOnTrigger = fx.NewState("WaitingOnTrigger").WithAnimation(aac.NewClip().TogglingComponent(sender, false));
-
-            var triggered = fx.NewState("Triggered").WithAnimation(aac.NewClip().TogglingComponent(sender, true));
-            waitingOnTrigger.TransitionsTo(triggered).When(triggerParam.IsTrue());
-            triggered.TransitionsTo(waitingOnTrigger).When(triggerParam.IsFalse());
-
-            var rcvWhileOff = fx.NewState("ReceivedWhileOff").Drives(targetParam, true);
-            var rcvWhileOn = fx.NewState("ReceivedWhileOn").Drives(targetParam, false);
-
-            waitingOnTrigger.TransitionsTo(rcvWhileOff).When(rcvParam.IsTrue()).And(targetParam.IsFalse()).And(fx.Av3().ItIsLocal());
-            waitingOnTrigger.TransitionsTo(rcvWhileOn).When(rcvParam.IsTrue()).And(targetParam.IsTrue()).And(fx.Av3().ItIsLocal());
-            rcvWhileOff.TransitionsTo(waitingOnTrigger).When(rcvParam.IsFalse());
-            rcvWhileOn.TransitionsTo(waitingOnTrigger).When(rcvParam.IsFalse());
+            // taken care of for us by AavGenerator special handling
         }
 
         public override VRCExpressionsMenu.Control GenerateAv3MenuEntry(AnimatorAsVisual aav)
         {
-            return new VRCExpressionsMenu.Control()
+            VRCExpressionsMenu.Control AddLayer(RemotingDataNode node)
             {
-                icon = this.Icon,
-                name = this.AavName,
-                parameter = new VRCExpressionsMenu.Control.Parameter() { name = "AAVRemoteAAV-" + this.TargetParameterName },
-                type = VRCExpressionsMenu.Control.ControlType.Button,
-            };
-        }
+                if (node.Name == null || node.Children == null) return null;
 
-        [MenuItem("Tools/Animator As Visual/Clone Menu As Remoting")]
-        public static void ConstructRemotingClone()
-        {
-            var objs = Selection.gameObjects;
-            if (objs == null || objs.Length == 0) return;
-
-            var folderComp = objs[0].GetComponent<AavSubmenuItem>();
-            if (folderComp == null)
-            {
-                EditorUtility.DisplayDialog("Error", "You must select an AAV submenu item!", "Ok");
-                return;
-            }
-
-            var clone = Instantiate<GameObject>(folderComp.gameObject);
-            clone.transform.SetParent(folderComp.transform.parent);
-            var cloneComp = clone.GetComponent<AavSubmenuItem>();
-
-            void ChangeToRemotingItem(AavMenuItem item)
-            {
-                if (item is AavSubmenuItem sub)
+                var subMenu = ScriptableObject.CreateInstance<VRCExpressionsMenu>();
+                subMenu.name = this.AavName;
+                AssetDatabase.AddObjectToAsset(subMenu, AssetDatabase.GetAssetPath(aav.Avatar.expressionsMenu));
+                foreach (var child in node.Children)
                 {
-                    foreach (var item2 in sub.Items)
+                    if (child.IsFolder)
                     {
-                        ChangeToRemotingItem(item2);
+                        var sub = AddLayer(child);
+                        if (sub != null)
+                            subMenu.controls.Add(sub);
                     }
-                    return;
-                }
-                else if (item is AavToggleItem)
-                {
-                    var newRemote = item.gameObject.AddComponent<AavRemotingItem>();
-                    newRemote.AavName = item.AavName;
-                    newRemote.Icon = item.Icon;
-                    newRemote.TargetParameterName = "AAV" + item.ParameterName;
+                    else
+                    {
+                        subMenu.controls.Add(new VRCExpressionsMenu.Control()
+                        {
+                            name = child.Name,
+                            icon = this.Icon,
+                            parameter = new VRCExpressionsMenu.Control.Parameter() { name = "AAVTriggerSend-AAV-Contact-" + child.ParameterName },
+                            type = VRCExpressionsMenu.Control.ControlType.Button,
+                        });
+                    }
                 }
 
-                if (item.gameObject.GetComponents<AavMenuItem>().Length == 1)
+                return new VRCExpressionsMenu.Control()
                 {
-                    GameObject.DestroyImmediate(item.gameObject);
-                }
-                else
-                {
-                    Component.DestroyImmediate(item);
-                }
+                    name = this.AavName,
+                    icon = this.Icon,
+                    type = VRCExpressionsMenu.Control.ControlType.SubMenu,
+                    subMenu = subMenu,
+                };
             }
 
-            ChangeToRemotingItem(cloneComp);
+            return AddLayer(RemotingData);
         }
     }
 }
