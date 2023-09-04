@@ -84,6 +84,7 @@ namespace pi.AnimatorAsVisual
                 }
                 else
                 {
+                    builder.AppendLine();
                     foreach (var child in node.Children)
                     {
                         ShowRecursive(builder, child, indent + 1);
