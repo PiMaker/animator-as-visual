@@ -562,6 +562,7 @@ namespace pi.AnimatorAsVisual
                     }
                     catch (Exception e)
                     {
+                        Debug.LogException(e);
                         lastGeneratedStatus = $"ERROR: {e.Message}";
                         lastGeneratedRemotingString = null;
                         lastGeneratedTime = DateTime.UtcNow;

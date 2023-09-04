@@ -9,6 +9,7 @@ using UnityEngine;
 
 using AnimatorAsCode.Pi.V0;
 using VRC.SDK3.Avatars.ScriptableObjects;
+using System;
 
 namespace pi.AnimatorAsVisual
 {
@@ -46,6 +47,10 @@ namespace pi.AnimatorAsVisual
             try
             {
                 GenerateInternal();
+            }
+            catch (Exception e)
+            {
+                throw e; // re-throw
             }
             finally
             {
