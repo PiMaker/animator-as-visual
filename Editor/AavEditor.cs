@@ -281,10 +281,12 @@ namespace pi.AnimatorAsVisual
         internal void GenerateMenu()
         {
             if (PrefabUtility.IsPartOfPrefabAsset(Data.gameObject)) return;
-            if (Data.CurrentlySelected >= CurrentMenu.Items.Count()) Data.CurrentlySelected = -1;
+
+            var count = CurrentMenu.Items.Count();
+            if (Data.CurrentlySelected >= count) Data.CurrentlySelected = -1;
 
             var list = new List<(RadialSliceButton, AavMenuItem)>();
-            list.Add((new RadialSliceButton(HandleAddControl, "Add Control", iconPlus), null));
+            list.Add((new RadialSliceButton(HandleAddControl, count >= 8 ? "<menu full>" : "Add Control", iconPlus), null));
 
             var i = 0;
             foreach (var item in CurrentMenu.Items)
@@ -333,6 +335,12 @@ namespace pi.AnimatorAsVisual
 
         private void HandleAddControl()
         {
+            if (CurrentMenu.Items.Count() >= 8)
+            {
+                EditorUtility.DisplayDialog("Too many entries!", "You cannot have more than 8 entries in a menu.", "OK");
+                return;
+            }
+
             var go = new GameObject("New Entry");
             var selectorItem = go.AddComponent<AavTypeSelectorItem>();
             selectorItem.transform.parent = Data.CurrentMenu.transform;
