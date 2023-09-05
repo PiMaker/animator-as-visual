@@ -18,6 +18,8 @@ namespace pi.AnimatorAsVisual
         private string editorRemotingDataString;
         private readonly static StringBuilder tmpBuilder = new StringBuilder();
 
+        private static Texture2D folderIcon;
+
         [Serializable]
         public struct RemotingDataNode
         {
@@ -67,7 +69,7 @@ namespace pi.AnimatorAsVisual
                 RemotingData = JsonUtility.FromJson<RemotingDataNode>(editorRemotingDataString);
 
             EditorGUILayout.Separator();
-            EditorGUILayout.LabelField($"Controls avatar: {(RemotingData.Name == null ? "<Not Loaded>" : RemotingData.Name)}");
+            EditorGUILayout.LabelField($"Controls avatar: {RemotingData.Name ?? "<Not Loaded>"}");
 
             void ShowRecursive(StringBuilder builder, RemotingDataNode node, int indent = 0)
             {
@@ -110,18 +112,21 @@ namespace pi.AnimatorAsVisual
 
         public override VRCExpressionsMenu.Control GenerateAv3MenuEntry(AnimatorAsVisual aav)
         {
-            VRCExpressionsMenu.Control AddLayer(RemotingDataNode node)
+            if (folderIcon == null)
+                folderIcon = AssetDatabase.LoadAssetAtPath<Texture2D>("Packages/com.vrchat.avatars/Samples/AV3 Demo Assets/Expressions Menu/Icons/item_folder.png");
+
+            VRCExpressionsMenu.Control AddLayer(RemotingDataNode node, string name, bool noFolderIcon = false)
             {
                 if (node.Name == null || node.Children == null) return null;
 
                 var subMenu = ScriptableObject.CreateInstance<VRCExpressionsMenu>();
-                subMenu.name = this.AavName;
+                subMenu.name = name;
                 AssetDatabase.AddObjectToAsset(subMenu, AssetDatabase.GetAssetPath(aav.Avatar.expressionsMenu));
                 foreach (var child in node.Children)
                 {
                     if (child.IsFolder)
                     {
-                        var sub = AddLayer(child);
+                        var sub = AddLayer(child, child.Name);
                         if (sub != null)
                             subMenu.controls.Add(sub);
                     }
@@ -139,14 +144,14 @@ namespace pi.AnimatorAsVisual
 
                 return new VRCExpressionsMenu.Control()
                 {
-                    name = this.AavName,
-                    icon = this.Icon,
+                    name = name,
+                    icon = noFolderIcon || folderIcon == null ? this.Icon : folderIcon,
                     type = VRCExpressionsMenu.Control.ControlType.SubMenu,
                     subMenu = subMenu,
                 };
             }
 
-            return AddLayer(RemotingData);
+            return AddLayer(RemotingData, this.AavName, noFolderIcon: true);
         }
     }
 }

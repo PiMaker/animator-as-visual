@@ -96,7 +96,7 @@ namespace pi.AnimatorAsVisual
 
                 receiver.collisionTags = new List<string>() { "AAV-Contact-" + toggle.ParameterName };
                 receiver.shapeType = VRC.Dynamics.ContactBase.ShapeType.Sphere;
-                receiver.radius = 0.01f;
+                receiver.radius = 0.05f;
                 receiver.allowOthers = true;
                 receiver.allowSelf = true; // do we want this? idk, but we have it now
                 receiver.localOnly = true;
