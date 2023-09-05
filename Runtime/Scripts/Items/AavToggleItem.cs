@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using AnimatorAsCode.Pi.V0;
 using UnityEngine;
 using VRC.SDK3.Avatars.ScriptableObjects;
@@ -28,6 +29,92 @@ namespace pi.AnimatorAsVisual
 
         public bool CanUseBlendTree => !this.DisableMouthMovement && Mathf.Approximately(TransitionDuration, 0.0f) && (Drives == null || Drives.Count == 0);
 
+        private static readonly HashSet<(SkinnedMeshRenderer, string)> drivenBlendShapes = new HashSet<(SkinnedMeshRenderer, string)>();
+        private static readonly Dictionary<(SkinnedMeshRenderer, string), List<AacFlParameter>> doubleDrivenBlendShapes = new Dictionary<(SkinnedMeshRenderer, string), List<AacFlParameter>>();
+        private static readonly Dictionary<(SkinnedMeshRenderer, string), (float on, float off)> doubleDrivenBlendShapesValues = new Dictionary<(SkinnedMeshRenderer, string), (float on, float off)>();
+        private static bool doubleDrivenBlendShapesUpdated = false;
+
+        public override void PreGenerateAnimator1(AavGenerator gen)
+        {
+            drivenBlendShapes.Clear();
+            doubleDrivenBlendShapes.Clear();
+            doubleDrivenBlendShapesValues.Clear();
+            doubleDrivenBlendShapesUpdated = false;
+        }
+
+        public override void PreGenerateAnimator2(AavGenerator gen)
+        {
+            foreach (var blend in this.BlendShapes)
+            {
+                var hash = (blend.Renderer, blend.BlendShape);
+                if (drivenBlendShapes.Contains(hash))
+                {
+                    if (!doubleDrivenBlendShapes.ContainsKey(hash))
+                    {
+                        doubleDrivenBlendShapes.Add(hash, new List<AacFlParameter>());
+                    }
+                }
+                else
+                {
+                    drivenBlendShapes.Add(hash);
+                }
+            }
+        }
+
+        public override void PostGenerateAnimator1(AavGenerator gen)
+        {
+            if (doubleDrivenBlendShapesUpdated)
+                return;
+            doubleDrivenBlendShapesUpdated = true;
+
+            var aac = gen.AAC;
+            foreach (var kvp in doubleDrivenBlendShapes)
+            {
+                Debug.LogWarning($"Blendshape {kvp.Key.Item2} on {kvp.Key.Item1.name} is driven by multiple AAV items, attempting workaround (experimental).");
+                var fx = aac.CreateSupportingFxLayer("AAVDoubleDrivenBlendShape-" + Guid.NewGuid().ToString());
+                fx.WithAvatarMaskNoTransforms();
+
+                var stateOff = fx.NewState("Disabled");
+                var stateOn = fx.NewState("Enabled");
+
+                var blendStates = doubleDrivenBlendShapesValues[kvp.Key];
+
+                stateOff.WithAnimation(aac.NewClip().BlendShape(kvp.Key.Item1, kvp.Key.Item2, blendStates.off));
+                stateOn.WithAnimation(aac.NewClip().BlendShape(kvp.Key.Item1, kvp.Key.Item2, blendStates.on));
+
+                var onTransitions = stateOn.TransitionsTo(stateOff).WhenConditions();
+                var offTransitions = stateOff.TransitionsTo(stateOn).WhenConditions();
+
+                var firstOr = true;
+
+                foreach (var param in kvp.Value)
+                {
+                    if (param is AacFlBoolParameter boolParam)
+                    {
+                        if (firstOr)
+                            onTransitions.And(boolParam.IsTrue());
+                        else
+                            onTransitions.Or().When(boolParam.IsTrue());
+                        offTransitions.And(boolParam.IsFalse());
+                    }
+                    else if (param is AacFlFloatParameter floatParam)
+                    {
+                        if (firstOr)
+                            onTransitions.And(floatParam.IsGreaterThan(0.5f));
+                        else
+                            onTransitions.Or().When(floatParam.IsGreaterThan(0.5f));
+                        offTransitions.And(floatParam.IsLessThan(0.5f));
+                    }
+                    else
+                    {
+                        Debug.LogError($"Blendshape {kvp.Key.Item2} on {kvp.Key.Item1.name} is driven by an unsupported parameter type {param.GetType().Name}. This is an internal error and shouldn't happen, probably?");
+                    }
+
+                    firstOr = false;
+                }
+            }
+        }
+
         /*
             Animator Generation Logic for all kinds of actions (List<T>s above)
         */
@@ -41,19 +128,19 @@ namespace pi.AnimatorAsVisual
                 var fx = aac.CreateSupportingFxLayer(this.ParameterName);
                 fx.WithAvatarMaskNoTransforms();
 
+                var param = gen.MakeAv3Parameter(fx, this.ParameterName, this.Saved, this.Default);
+
                 AacFlState shown, hidden;
                 if (Default)
                 {
-                    shown = GenerateSimpleState(aac, fx, true);
-                    hidden = GenerateSimpleState(aac, fx, false);
+                    shown = GenerateSimpleState(aac, fx, true, param);
+                    hidden = GenerateSimpleState(aac, fx, false, param);
                 }
                 else
                 {
-                    hidden = GenerateSimpleState(aac, fx, false);
-                    shown = GenerateSimpleState(aac, fx, true);
+                    hidden = GenerateSimpleState(aac, fx, false, param);
+                    shown = GenerateSimpleState(aac, fx, true, param);
                 }
-
-                var param = gen.MakeAv3Parameter(fx, this.ParameterName, this.Saved, this.Default);
 
                 if (Mathf.Approximately(TransitionDuration, 0.0f))
                 {
@@ -98,11 +185,11 @@ namespace pi.AnimatorAsVisual
             else
             {
                 var param = gen.MakeAv3ParameterBoolFloat(gen.MainFX, this.ParameterName, this.Saved, this.Default);
-                gen.RegisterBlendTreeMotion(GenerateSimpleClip(aac, true).Clip, GenerateSimpleClip(aac, false).Clip, param);
+                gen.RegisterBlendTreeMotion(GenerateSimpleClip(aac, true, param).Clip, GenerateSimpleClip(aac, false, param).Clip, param);
             }
         }
 
-        private AacFlClip GenerateSimpleClip(AacFlBase aac, bool enabled)
+        private AacFlClip GenerateSimpleClip(AacFlBase aac, bool enabled, AacFlParameter param)
         {
             var clip = aac.NewClip();
             foreach (var toggle in this.Toggles)
@@ -111,6 +198,18 @@ namespace pi.AnimatorAsVisual
             }
             foreach (var blend in this.BlendShapes)
             {
+                var hash = (blend.Renderer, blend.BlendShape);
+                if (doubleDrivenBlendShapes.TryGetValue(hash, out var paramList))
+                {
+                    if (doubleDrivenBlendShapesValues.TryGetValue(hash, out var blendStates) && (!Mathf.Approximately(blendStates.on, blend.StateOn) || !Mathf.Approximately(blendStates.off, blend.StateOff)))
+                        throw new Exception($"Blendshape {blend.BlendShape} on {blend.Renderer.name} is driven by multiple AAV items with *different on/off values*. This is not supported.");
+                    if (!paramList.Any(x => x.Name == param.Name))
+                    {
+                        paramList.Add(param);
+                        doubleDrivenBlendShapesValues[hash] = (on: blend.StateOn, off: blend.StateOff);
+                    }
+                    continue;
+                }
                 var blendState = enabled ? blend.StateOn : blend.StateOff;
                 clip = clip.BlendShape(blend.Renderer, blend.BlendShape, blendState);
             }
@@ -137,9 +236,9 @@ namespace pi.AnimatorAsVisual
             return clip;
         }
 
-        private AacFlState GenerateSimpleState(AacFlBase aac, AacFlLayer fx, bool enabled)
+        private AacFlState GenerateSimpleState(AacFlBase aac, AacFlLayer fx, bool enabled, AacFlParameter param)
         {
-            var clip = GenerateSimpleClip(aac, enabled);
+            var clip = GenerateSimpleClip(aac, enabled, param);
             var state = fx.NewState(enabled ? "Enabled" : "Disabled").WithAnimation(clip);
             if (this.DisableMouthMovement)
             {

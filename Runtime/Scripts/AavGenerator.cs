@@ -50,6 +50,7 @@ namespace pi.AnimatorAsVisual
             }
             catch (Exception e)
             {
+                Debug.LogException(e);
                 throw e; // re-throw
             }
             finally
@@ -115,11 +116,23 @@ namespace pi.AnimatorAsVisual
 
             // generate a layer for every entry
             foreach (var item in AAV.Root.EnumerateRecursive())
+                if (item.isActiveAndEnabled && item.gameObject.activeInHierarchy)
+                    item.PreGenerateAnimator1(this);
+            foreach (var item in AAV.Root.EnumerateRecursive())
+                if (item.isActiveAndEnabled && item.gameObject.activeInHierarchy)
+                    item.PreGenerateAnimator2(this);
+            foreach (var item in AAV.Root.EnumerateRecursive())
             {
                 AAC.RemoveAllSupportingLayers(item.ParameterName);
                 if (item.isActiveAndEnabled && item.gameObject.activeInHierarchy)
                     item.GenerateAnimator(this);
             }
+            foreach (var item in AAV.Root.EnumerateRecursive())
+                if (item.isActiveAndEnabled && item.gameObject.activeInHierarchy)
+                    item.PostGenerateAnimator1(this);
+            foreach (var item in AAV.Root.EnumerateRecursive())
+                if (item.isActiveAndEnabled && item.gameObject.activeInHierarchy)
+                    item.PostGenerateAnimator2(this);
 
             // remoting
             remotingRoot = null;

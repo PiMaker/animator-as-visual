@@ -45,6 +45,11 @@ namespace pi.AnimatorAsVisual
             target.AavName = source.AavName;
             target.Icon = source.Icon;
         }
+
+        public virtual void PreGenerateAnimator1(AavGenerator gen) {}
+        public virtual void PreGenerateAnimator2(AavGenerator gen) {}
+        public virtual void PostGenerateAnimator1(AavGenerator gen) {}
+        public virtual void PostGenerateAnimator2(AavGenerator gen) {}
     }
 
     [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
