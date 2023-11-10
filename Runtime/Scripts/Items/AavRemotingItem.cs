@@ -25,6 +25,7 @@ namespace pi.AnimatorAsVisual
         {
             public string Name;
             public bool IsFolder;
+            public bool IsButton;
             public string ParameterName;
             public RemotingDataNode[] Children;
         }

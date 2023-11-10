@@ -2,17 +2,18 @@
 
 using System;
 using System.Collections.Generic;
-
+using System.Linq;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
 
 using VRC.SDK3.Avatars.ScriptableObjects;
+using static pi.AnimatorAsVisual.AavToggleItem;
 
 namespace pi.AnimatorAsVisual
 {
     [Serializable]
-    [AavMenu("Blendshape Slider")]
+    [AavMenu("Slider")]
     public class AavBlendShapeSlider : AavMenuItem
     {
         [Range(0, 1)]
@@ -20,9 +21,11 @@ namespace pi.AnimatorAsVisual
         public bool Saved = true;
 
         // Let's just be lazy and reuse this so we can also reuse the ReorderableList editor
-        public List<AavToggleItem.AavBlendShapeToggle> BlendShapes = new List<AavToggleItem.AavBlendShapeToggle>();
+        public List<AavBlendShapeToggle> BlendShapes = new List<AavBlendShapeToggle>();
+        public List<AavMaterialParamToggle> MaterialParams = new List<AavMaterialParamToggle>();
 
         private ReorderableList RLBlendShapes;
+        private ReorderableList RLMaterialParams;
         private bool modified = false;
 
         public override bool DrawEditor(AnimatorAsVisual aav)
@@ -38,7 +41,7 @@ namespace pi.AnimatorAsVisual
 
             if (RLBlendShapes == null)
             {
-                RLBlendShapes = new ReorderableList(this.BlendShapes, typeof(AavToggleItem.AavBlendShapeToggle), true, false, true, true);
+                RLBlendShapes = new ReorderableList(this.BlendShapes, typeof(AavBlendShapeToggle), true, false, true, true);
                 RLBlendShapes.elementHeight *= 2;
                 RLBlendShapes.elementHeight += 2;
                 RLBlendShapes.drawElementCallback += (Rect rect, int index, bool isActive, bool isFocused) =>
@@ -92,8 +95,135 @@ namespace pi.AnimatorAsVisual
                 };
             }
 
+            var lblOn = AavHelpers.LblOn;
+            var lblOff = AavHelpers.LblOff;
+
+            /*
+                Material Parameter Toggle
+            */
+            if (RLMaterialParams == null)
+            {
+                RLMaterialParams = new ReorderableList(this.MaterialParams, typeof(AavMaterialParamToggle), true, false, true, true);
+                RLMaterialParams.elementHeight *= 2;
+                RLMaterialParams.elementHeight += 2;
+                RLMaterialParams.drawElementCallback += (Rect rect, int index, bool isActive, bool isFocused) =>
+                {
+                    var mparam = this.MaterialParams[index];
+
+                    // Check for updated renderer or first time run-through and update cached material properties if necessary
+                    var rendererChanged = false;
+                    mparam.Renderer = mparam.Renderer.UpdateWith(
+                        () => (Renderer)EditorGUI.ObjectField(
+                            new Rect(rect.x, rect.y + 1, rect.width / 2.0f - 5, EditorGUIUtility.singleLineHeight),
+                            mparam.Renderer, typeof(Renderer), true),
+                        ref rendererChanged);
+                    if (rendererChanged)
+                    {
+                        modified = true;
+                        mparam.Property = null;
+                        mparam.PropertyCache = null;
+                        if (mparam.Renderer != null)
+                            mparam.UpdateMaterialPropertyCache(mparam.Renderer);
+                    }
+                    if (mparam.Renderer == null) return;
+                    if (mparam.PropertyCache == null || mparam.CachedSharedMaterials == null || !mparam.CachedSharedMaterials.SequenceEqual(mparam.Renderer.sharedMaterials))
+                        mparam.UpdateMaterialPropertyCache(mparam.Renderer);
+
+                    // Draw property selector
+                    mparam.CurPropertyIndex = mparam.CurPropertyIndex.UpdateWith(
+                        () => EditorGUI.Popup(
+                                new Rect(
+                                    rect.x + rect.width / 2.0f + 5, rect.y + 1, rect.width / 2.0f - 5, EditorGUIUtility.singleLineHeight),
+                                mparam.CurPropertyIndex == -1 ? 0 : mparam.CurPropertyIndex,
+                                mparam.CurPropertyList),
+                        ref modified);
+
+                    if (mparam.CurPropertyIndex >= 1 && mparam.CurPropertyIndex < mparam.CurPropertyList.Length)
+                        mparam.Property = mparam.CurPropertyList[mparam.CurPropertyIndex].Substring(0, mparam.CurPropertyList[mparam.CurPropertyIndex].IndexOf(' '));
+                    else
+                        mparam.Property = null;
+
+                    if (mparam.Property == null || !mparam.PropertyCache.ContainsKey(mparam.Property)) return;
+
+                    // We have a property selected, figure out the type
+                    var (propMat, propIdx) = mparam.PropertyCache[mparam.Property];
+
+                    var isRange = false;
+                    var isToggle = false;
+                    mparam.Type = mparam.Type.UpdateWith(() =>
+                    {
+                        var attr = propMat.shader.GetPropertyAttributes(propIdx);
+                        var type = propMat.shader.GetPropertyType(propIdx);
+                        if (attr != null && attr.Contains("ToggleUI"))
+                        {
+                            isToggle = true;
+                        }
+                        if (type == UnityEngine.Rendering.ShaderPropertyType.Color)
+                        {
+                            return AavMaterialParamType.Color;
+                        }
+                        else if (type == UnityEngine.Rendering.ShaderPropertyType.Range)
+                        {
+                            isRange = true;
+                        }
+                        return AavMaterialParamType.Float;
+                    }, ref modified);
+
+                    // Only float is supported here for now
+                    if (mparam.Type == AavMaterialParamType.Float)
+                    {
+                        if (isToggle)
+                        {
+                            EditorGUI.LabelField(new Rect(rect.x, rect.y + 4 + EditorGUIUtility.singleLineHeight, 30, EditorGUIUtility.singleLineHeight), "❌ Toggle property not supported for slider!");
+                        }
+                        else if (isRange)
+                        {
+                            var range = propMat.shader.GetPropertyRangeLimits(propIdx);
+                            EditorGUI.LabelField(new Rect(rect.x, rect.y + 4 + EditorGUIUtility.singleLineHeight, 30, EditorGUIUtility.singleLineHeight), lblOn);
+                            mparam.FloatValueOn = mparam.FloatValueOn.UpdateWith(
+                                () => EditorGUI.Slider(
+                                    new Rect(
+                                        rect.x + 30, rect.y + 4 + EditorGUIUtility.singleLineHeight, rect.width / 2.0f - 5 - 30, EditorGUIUtility.singleLineHeight),
+                                    mparam.FloatValueOn, range.x, range.y),
+                                ref modified);
+                            EditorGUI.LabelField(new Rect(rect.x + rect.width / 2.0f + 5, rect.y + 4 + EditorGUIUtility.singleLineHeight, 30, EditorGUIUtility.singleLineHeight), lblOff);
+                            mparam.FloatValueOff = mparam.FloatValueOff.UpdateWith(
+                                () => EditorGUI.Slider(
+                                    new Rect(
+                                        rect.x + rect.width / 2.0f + 5 + 30, rect.y + 4 + EditorGUIUtility.singleLineHeight, rect.width / 2.0f - 5 - 30, EditorGUIUtility.singleLineHeight),
+                                    mparam.FloatValueOff, range.x, range.y),
+                                ref modified);
+                        }
+                        else
+                        {
+                            EditorGUI.LabelField(new Rect(rect.x, rect.y + 4 + EditorGUIUtility.singleLineHeight, 30, EditorGUIUtility.singleLineHeight), lblOn);
+                            mparam.FloatValueOn = mparam.FloatValueOn.UpdateWith(
+                                () => EditorGUI.FloatField(
+                                    new Rect(
+                                        rect.x + 30, rect.y + 4 + EditorGUIUtility.singleLineHeight, rect.width / 2.0f - 5 - 30, EditorGUIUtility.singleLineHeight),
+                                    mparam.FloatValueOn),
+                                ref modified);
+                            EditorGUI.LabelField(new Rect(rect.x + rect.width / 2.0f + 5, rect.y + 4 + EditorGUIUtility.singleLineHeight, 30, EditorGUIUtility.singleLineHeight), lblOff);
+                            mparam.FloatValueOff = mparam.FloatValueOff.UpdateWith(
+                                () => EditorGUI.FloatField(
+                                    new Rect(
+                                        rect.x + rect.width / 2.0f + 5 + 30, rect.y + 4 + EditorGUIUtility.singleLineHeight, rect.width / 2.0f - 5 - 30, EditorGUIUtility.singleLineHeight),
+                                    mparam.FloatValueOff),
+                                ref modified);
+                        }
+                    }
+                    else
+                    {
+                        EditorGUILayout.HelpBox("Only float properties are supported for now", MessageType.Error);
+                    }
+                };
+            }
+
             GUILayout.Label("Blend Shapes affected", AavHelpers.HeaderStyle);
             RLBlendShapes.DoLayoutList();
+
+            GUILayout.Label("Material Parameters affected", AavHelpers.HeaderStyle);
+            RLMaterialParams.DoLayoutList();
 
             return modified;
         }
@@ -119,6 +249,18 @@ namespace pi.AnimatorAsVisual
                                 .Linear(0, shape.StateOff)
                                 .Linear(1, shape.StateOn);
                         });
+                    }
+                    foreach (var mparam in this.MaterialParams)
+                    {
+                        if (mparam.Type == AavMaterialParamType.Float && mparam.Renderer != null)
+                        {
+                            clip.Animates(mparam.Renderer, "material." + mparam.Property).WithSecondsUnit(frames =>
+                            {
+                                frames
+                                    .Linear(0, mparam.FloatValueOff)
+                                    .Linear(1, mparam.FloatValueOn);
+                            });
+                        }
                     }
                 }));
         }

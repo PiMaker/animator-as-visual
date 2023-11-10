@@ -11,7 +11,7 @@ namespace pi.AnimatorAsVisual
 {
     [Serializable]
     [AavMenu("Toggle", -10)]
-    public partial class AavToggleItem : AavMenuItem
+    public partial class AavToggleItem : AavMenuItem, IAavRemotingReceiver
     {
         public bool Default = false;
         public bool Saved = true;
@@ -28,6 +28,12 @@ namespace pi.AnimatorAsVisual
         public List<AavToggleDrives> Drives = new List<AavToggleDrives>();
 
         public bool CanUseBlendTree => !this.DisableMouthMovement && Mathf.Approximately(TransitionDuration, 0.0f) && (Drives == null || Drives.Count == 0);
+
+        bool IAavRemotingReceiver.AllowRemoteToggle => AllowRemoteToggle;
+        string IAavRemotingReceiver.ParameterName => ParameterName;
+        string IAavRemotingReceiver.FriendlyName => AavName;
+        bool IAavRemotingReceiver.IsFloatType => CanUseBlendTree;
+        bool IAavRemotingReceiver.IsButton => false;
 
         private static readonly HashSet<(SkinnedMeshRenderer, string)> drivenBlendShapes = new HashSet<(SkinnedMeshRenderer, string)>();
         private static readonly Dictionary<(SkinnedMeshRenderer, string), List<AacFlParameter>> doubleDrivenBlendShapes = new Dictionary<(SkinnedMeshRenderer, string), List<AacFlParameter>>();
@@ -194,10 +200,12 @@ namespace pi.AnimatorAsVisual
             var clip = aac.NewClip();
             foreach (var toggle in this.Toggles)
             {
+                if (toggle.Object == null) continue;
                 clip = clip.Toggling(toggle.Object, enabled ^ toggle.Invert);
             }
             foreach (var blend in this.BlendShapes)
             {
+                if (blend.Renderer == null) continue;
                 var hash = (blend.Renderer, blend.BlendShape);
                 if (doubleDrivenBlendShapes.TryGetValue(hash, out var paramList))
                 {
@@ -221,6 +229,7 @@ namespace pi.AnimatorAsVisual
             {
                 foreach (var mparam in this.MaterialParams)
                 {
+                    if (mparam.Renderer == null) continue;
                     if (mparam.Type == AavMaterialParamType.Float)
                     {
                         edit.Animates(mparam.Renderer, "material." + mparam.Property)

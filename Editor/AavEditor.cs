@@ -547,6 +547,16 @@ namespace pi.AnimatorAsVisual
 
             var error = HandleAvatarErrors();
 
+            if (AavGenerator.Hooks.Any())
+            {
+                GUILayout.Space(4);
+                GUILayout.Label("Active Hooks:", EditorStyles.boldLabel);
+                foreach (var hook in AavGenerator.Hooks)
+                {
+                    GUILayout.Label(hook.Name);
+                }
+            }
+
             // Big blue sync button
             if (!error)
             {

@@ -9,7 +9,7 @@ namespace pi.AnimatorAsVisual
 {
     [Serializable]
     [AavMenu("Raw Av3 Menu Entry")]
-    public class AavRawMenuItem : AavMenuItem
+    public class AavRawMenuItem : AavMenuItem, IAavRemotingReceiver
     {
         public VRCExpressionsMenu.Control.Label[] RawLabels;
         public string RawParameterName;
@@ -19,7 +19,15 @@ namespace pi.AnimatorAsVisual
         public VRCExpressionsMenu RawSubMenu;
         public string[] RawSubParameters;
 
+        public bool AllowRemoteToggle = false;
+
         private bool expertFoldout;
+
+        bool IAavRemotingReceiver.AllowRemoteToggle => AllowRemoteToggle;
+        string IAavRemotingReceiver.ParameterName => RawParameterName;
+        string IAavRemotingReceiver.FriendlyName => AavName;
+        bool IAavRemotingReceiver.IsFloatType => false; // assume bool?
+        bool IAavRemotingReceiver.IsButton => RawType == VRCExpressionsMenu.Control.ControlType.Button;
 
         public void SetDataFromControl(VRCExpressionsMenu.Control baseControl)
         {
@@ -37,6 +45,8 @@ namespace pi.AnimatorAsVisual
         {
             var my = new SerializedObject(this);
             my.Update();
+
+            EditorGUILayout.PropertyField(my.FindProperty(nameof(AllowRemoteToggle)));
 
             var parameterName = my.FindProperty(nameof(RawParameterName));
             var type = my.FindProperty(nameof(RawType));

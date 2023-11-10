@@ -36,12 +36,13 @@ namespace pi.AnimatorAsVisual
                     if (gen.Name != null && gen.Children != null && gen.Children.Length > 0)
                         currentChildList.Add(gen);
                 }
-                else if (item is AavToggleItem toggle && toggle.AllowRemoteToggle && toggle.isActiveAndEnabled)
+                else if (item is IAavRemotingReceiver toggle && toggle.AllowRemoteToggle && ((Behaviour)toggle).isActiveAndEnabled)
                 {
                     currentChildList.Add(new AavRemotingItem.RemotingDataNode()
                     {
                         IsFolder = false,
-                        Name = toggle.AavName,
+                        IsButton = toggle.IsButton,
+                        Name = toggle.FriendlyName,
                         ParameterName = toggle.ParameterName,
                     });
                 }
@@ -62,10 +63,10 @@ namespace pi.AnimatorAsVisual
 
         private void GenerateRemotingReceivers()
         {
-            var toggles = new List<AavToggleItem>();
+            var toggles = new List<IAavRemotingReceiver>();
             foreach (var item in AAV.Root.EnumerateRecursive())
             {
-                if (item is AavToggleItem toggle && toggle.AllowRemoteToggle && toggle.isActiveAndEnabled)
+                if (item is IAavRemotingReceiver toggle && toggle.AllowRemoteToggle && ((Behaviour)toggle).isActiveAndEnabled)
                     toggles.Add(toggle);
             }
 
@@ -110,14 +111,21 @@ namespace pi.AnimatorAsVisual
                 var contactParam = fx.FloatParameter(paramName);
                 var stateToOn = fx.NewState("RCV-to-on-" + toggle.ParameterName, 2, receiverPos++);
                 var stateToOff = fx.NewState("RCV-to-off-" + toggle.ParameterName, 2, receiverPos++);
-                if (toggle.CanUseBlendTree)
+                if (toggle.IsFloatType)
                 {
                     var param = fx.FloatParameter("AAV" + toggle.ParameterName);
                     stateToOn.Drives(param, 1.0f).DrivingLocally();
                     stateToOff.Drives(param, 0.0f).DrivingLocally();
 
-                    emptyState.TransitionsTo(stateToOn).When(contactParam.IsGreaterThan(0.5f)).And(param.IsLessThan(0.5f));
-                    emptyState.TransitionsTo(stateToOff).When(contactParam.IsGreaterThan(0.5f)).And(param.IsGreaterThan(0.5f));
+                    if (toggle.IsButton)
+                    {
+                        emptyState.TransitionsTo(stateToOn).When(contactParam.IsGreaterThan(0.5f));
+                    }
+                    else
+                    {
+                        emptyState.TransitionsTo(stateToOn).When(contactParam.IsGreaterThan(0.5f)).And(param.IsLessThan(0.5f));
+                        emptyState.TransitionsTo(stateToOff).When(contactParam.IsGreaterThan(0.5f)).And(param.IsGreaterThan(0.5f));
+                    }
                 }
                 else
                 {
@@ -125,12 +133,22 @@ namespace pi.AnimatorAsVisual
                     stateToOn.Drives(param, true).DrivingLocally();
                     stateToOff.Drives(param, false).DrivingLocally();
 
-                    emptyState.TransitionsTo(stateToOn).When(contactParam.IsGreaterThan(0.5f)).And(param.IsFalse());
-                    emptyState.TransitionsTo(stateToOff).When(contactParam.IsGreaterThan(0.5f)).And(param.IsTrue());
+                    if (toggle.IsButton)
+                    {
+                        emptyState.TransitionsTo(stateToOn).When(contactParam.IsGreaterThan(0.5f));
+                    }
+                    else
+                    {
+                        emptyState.TransitionsTo(stateToOn).When(contactParam.IsGreaterThan(0.5f)).And(param.IsFalse());
+                        emptyState.TransitionsTo(stateToOff).When(contactParam.IsGreaterThan(0.5f)).And(param.IsTrue());
+                    }
                 }
 
-                stateToOn.TransitionsTo(emptyState).When(contactParam.IsLessThan(0.5f));
                 stateToOff.TransitionsTo(emptyState).When(contactParam.IsLessThan(0.5f));
+                if (toggle.IsButton)
+                    stateToOn.TransitionsTo(stateToOff).AfterAnimationFinishes();
+                else
+                    stateToOn.TransitionsTo(emptyState).When(contactParam.IsLessThan(0.5f));
             }
         }
 

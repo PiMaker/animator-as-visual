@@ -33,6 +33,7 @@ namespace pi.AnimatorAsVisual
         public string RemotingString { get; private set; }
 
         private static readonly HashSet<IAavGeneratorHook> hooks = new HashSet<IAavGeneratorHook>();
+        public static IEnumerable<IAavGeneratorHook> Hooks => hooks;
         public static void RegisterHook(IAavGeneratorHook hook) => hooks.Add(hook);
 
         public AavGenerator(AnimatorAsVisual aav)
@@ -113,6 +114,10 @@ namespace pi.AnimatorAsVisual
             AAC.RemoveAllMainLayers();
             MainFX = AAC.CreateMainFxLayer();
             MainFX.WithAvatarMaskNoTransforms(); // FIXME? make masks configurable?
+
+            // call custom generation hooks
+            foreach (var hook in hooks)
+                hook.PreApply(avatar.gameObject, this);
 
             // generate a layer for every entry
             foreach (var item in AAV.Root.EnumerateRecursive())
@@ -252,7 +257,7 @@ namespace pi.AnimatorAsVisual
             return param;
         }
 
-        public AacFlParameter MakeAv3ParameterInternal(AacFlLayer fx, string name, bool saved, VRCExpressionParameters.ValueType type, float @default, bool forceFloatFx = false, bool prefix = true)
+        public AacFlParameter MakeAv3ParameterInternal(AacFlLayer fx, string name, bool saved, VRCExpressionParameters.ValueType type, float @default, bool forceFloatFx = false, bool prefix = true, bool localOnly = false)
         {
             if (prefix)
                 name = "AAV" + name;
@@ -282,6 +287,7 @@ namespace pi.AnimatorAsVisual
                     valueType = type,
                     saved = saved,
                     defaultValue = @default,
+                    networkSynced = !localOnly,
                 });
                 Parameters.parameters = ptmp.ToArray();
                 Debug.Log("AAV: Added or updated Avatar Parameter: " + name);
